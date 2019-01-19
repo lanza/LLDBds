@@ -31,11 +31,12 @@ import lldb.utils.symbolication
 
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-        'command script add -f dclass.dclass dclass -h "Dumps info about objc/swift classes"')
+        'command script add -f dclass.dclass dclass -h "Dumps info about objc/swift classes"'
+    )
 
 
 def dclass(debugger, command, exe_ctx, result, internal_dict):
-    '''
+    """
     Dumps all the NSObject inherited classes in the process. If you give it a module, 
     it will dump only the classes within that module. You can also filter out classes 
     to only a certain type and can also generate a header file for a specific class.
@@ -68,7 +69,7 @@ def dclass(debugger, command, exe_ctx, result, internal_dict):
 
       # Only dump classes whose superclass is of type class and in UIKit module. Ideal for going after specific classes
       (lldb) dclass -s NSObject -m UIKit
-    '''
+    """
 
     command_args = shlex.split(command, posix=False)
     parser = generate_option_parser()
@@ -83,16 +84,31 @@ def dclass(debugger, command, exe_ctx, result, internal_dict):
         clean_command = None
         # return
     if not args and options.generate_header:
-        result.SetError('Need to supply class for option')
+        result.SetError("Need to supply class for option")
         return
     else:
-        clean_command = ('').join(args)
+        clean_command = ("").join(args)
 
     res = lldb.SBCommandReturnObject()
     interpreter = debugger.GetCommandInterpreter()
     target = exe_ctx.target
 
-    if not options.info and not options.class_type and not options.verbose and not options.regular_expression and not options.module and not options.filter and not options.search_protocols and not options.dump_code_output and not options.generate_header and not options.verbose_info and not options.generate_protocol and not options.conforms_to_protocol and not options.superclass and len(args) == 1:
+    if (
+        not options.info
+        and not options.class_type
+        and not options.verbose
+        and not options.regular_expression
+        and not options.module
+        and not options.filter
+        and not options.search_protocols
+        and not options.dump_code_output
+        and not options.generate_header
+        and not options.verbose_info
+        and not options.generate_protocol
+        and not options.conforms_to_protocol
+        and not options.superclass
+        and len(args) == 1
+    ):
         options.info = args[0]
 
     if options.info or options.verbose_info:
@@ -100,31 +116,39 @@ def dclass(debugger, command, exe_ctx, result, internal_dict):
 
         # print(script)
         # return
-        interpreter.HandleCommand('expression -lobjc -O -- ' + script, res)
+        interpreter.HandleCommand("expression -lobjc -O -- " + script, res)
         if res.GetError():
-            result.SetError(res.GetError()) 
+            result.SetError(res.GetError())
             return
         contents = res.GetOutput()
         result.AppendMessage(contents)
         return
 
-
-
-
     elif options.dump_code_output:
-        directory = '/tmp/{}_{}/'.format(target.executable.basename, datetime.datetime.now().time())
+        directory = "/tmp/{}_{}/".format(
+            target.executable.basename, datetime.datetime.now().time()
+        )
         os.makedirs(directory)
 
         modules = target.modules
-        if len(args) > 0 and args[0] == '__all':
-            os.makedirs(directory + 'PrivateFrameworks')
-            os.makedirs(directory + 'Frameworks')
-            modules = [i for i in target.modules if '/usr/lib/' not in i.file.fullpath and '__lldb_' not in i.file.fullpath]
+        if len(args) > 0 and args[0] == "__all":
+            os.makedirs(directory + "PrivateFrameworks")
+            os.makedirs(directory + "Frameworks")
+            modules = [
+                i
+                for i in target.modules
+                if "/usr/lib/" not in i.file.fullpath
+                and "__lldb_" not in i.file.fullpath
+            ]
             outputMsg = "Dumping all private Objective-C frameworks"
         elif len(args) > 0 and args[0]:
             module = target.module[args[0]]
             if module is None:
-                result.SetError( "Unable to open module name '{}', to see list of images use 'image list -b'".format(args[0]))
+                result.SetError(
+                    "Unable to open module name '{}', to see list of images use 'image list -b'".format(
+                        args[0]
+                    )
+                )
                 return
             modules = [module]
             outputMsg = "Dumping all private Objective-C frameworks"
@@ -132,37 +156,51 @@ def dclass(debugger, command, exe_ctx, result, internal_dict):
             modules = [target.module[target.executable.fullpath]]
 
         for module in modules:
-            command_script = generate_module_header_script(options, module.file.fullpath.replace('//', '/'))
+            command_script = generate_module_header_script(
+                options, module.file.fullpath.replace("//", "/")
+            )
 
-            interpreter.HandleCommand('expression -lobjc -O -u0 -- ' + command_script, res)
+            interpreter.HandleCommand(
+                "expression -lobjc -O -u0 -- " + command_script, res
+            )
             # debugger.HandleCommand('expression -lobjc -O -- ' + command_script)
-            if '/System/Library/PrivateFrameworks/' in module.file.fullpath:
-                subdir = 'PrivateFrameworks/'
-            elif '/System/Library/Frameworks/' in module.file.fullpath:
-                subdir = 'Frameworks/'
+            if "/System/Library/PrivateFrameworks/" in module.file.fullpath:
+                subdir = "PrivateFrameworks/"
+            elif "/System/Library/Frameworks/" in module.file.fullpath:
+                subdir = "Frameworks/"
             else:
-                subdir = ''
+                subdir = ""
 
-            ds.create_or_touch_filepath(directory + subdir + module.file.basename + '.txt', res.GetOutput())
-        print('Written output to: ' + directory + '... opening file')
-        os.system('open -R ' + directory)
+            ds.create_or_touch_filepath(
+                directory + subdir + module.file.basename + ".txt", res.GetOutput()
+            )
+        print("Written output to: " + directory + "... opening file")
+        os.system("open -R " + directory)
         return
 
     if options.module is not None:
-        options.module =  options.module.strip("\"\'")
+        options.module = options.module.strip("\"'")
         module = target.FindModule(lldb.SBFileSpec(options.module))
         if not module.IsValid():
             if not module or not module.IsValid():
                 result.SetError(
-                    "Unable to open module name '{}', to see list of images use 'image list -b'".format(str(options.module)))
+                    "Unable to open module name '{}', to see list of images use 'image list -b'".format(
+                        str(options.module)
+                    )
+                )
                 return
 
-
-
     if options.conforms_to_protocol is not None:
-        interpreter.HandleCommand('expression -lobjc -O -- (id)NSProtocolFromString(@\"{}\")'.format(options.conforms_to_protocol), res)
-        if 'nil' in res.GetOutput() or not res.GetOutput():
-            result.SetError("No such Protocol name '{}'".format(options.conforms_to_protocol))
+        interpreter.HandleCommand(
+            'expression -lobjc -O -- (id)NSProtocolFromString(@"{}")'.format(
+                options.conforms_to_protocol
+            ),
+            res,
+        )
+        if "nil" in res.GetOutput() or not res.GetOutput():
+            result.SetError(
+                "No such Protocol name '{}'".format(options.conforms_to_protocol)
+            )
             return
         res.Clear()
 
@@ -172,42 +210,53 @@ def dclass(debugger, command, exe_ctx, result, internal_dict):
         command_script = generate_class_dump(target, options, clean_command)
 
     if options.generate_header or options.generate_protocol:
-        interpreter.HandleCommand('expression -lobjc -O -- (Class)NSClassFromString(@\"{}\")'.format(clean_command), res)
-        if 'nil' in res.GetOutput():
-            result.SetError('Can\'t find class named "{}". Womp womp...'.format(clean_command))
+        interpreter.HandleCommand(
+            'expression -lobjc -O -- (Class)NSClassFromString(@"{}")'.format(
+                clean_command
+            ),
+            res,
+        )
+        if "nil" in res.GetOutput():
+            result.SetError(
+                'Can\'t find class named "{}". Womp womp...'.format(clean_command)
+            )
             return
         res.Clear()
 
-        if options.generate_protocol: 
-          filepath = "/tmp/DS_" + clean_command + "Protocol.h"
-        else:  
-          filepath = "/tmp/" + clean_command + ".h"
-        interpreter.HandleCommand('expression -lobjc -O -- ' + command_script, res)
+        if options.generate_protocol:
+            filepath = "/tmp/DS_" + clean_command + "Protocol.h"
+        else:
+            filepath = "/tmp/" + clean_command + ".h"
+        interpreter.HandleCommand("expression -lobjc -O -- " + command_script, res)
         # debugger.HandleCommand('expression -lobjc -O -g -- ' + command_script)
         if res.GetError():
-            result.SetError(res.GetError()) 
+            result.SetError(res.GetError())
             return
         contents = res.GetOutput()
 
         ds.create_or_touch_filepath(filepath, contents)
-        print('Written output to: ' + filepath + '... opening file')
-        os.system('open -R ' + filepath)
-    else: 
+        print("Written output to: " + filepath + "... opening file")
+        os.system("open -R " + filepath)
+    else:
         msg = "Dumping protocols" if options.search_protocols else "Dumping classes"
-        result.AppendMessage(ds.attrStr(msg, 'cyan'))
+        result.AppendMessage(ds.attrStr(msg, "cyan"))
 
-        interpreter.HandleCommand('expression -lobjc -O -- ' + command_script, res)
+        interpreter.HandleCommand("expression -lobjc -O -- " + command_script, res)
         # debugger.HandleCommand('expression -lobjc -O -g -- ' + command_script)
         if res.GetError():
-            result.SetError(ds.attrStr(res.GetError(), 'red'))
+            result.SetError(ds.attrStr(res.GetError(), "red"))
             return
-        result.AppendMessage(ds.attrStr('************************************************************', 'cyan'))
-        if res.Succeeded(): 
+        result.AppendMessage(
+            ds.attrStr(
+                "************************************************************", "cyan"
+            )
+        )
+        if res.Succeeded():
             result.AppendMessage(res.GetOutput())
 
 
 def generate_class_dump(target, options, clean_command=None):
-    command_script = r'''
+    command_script = r"""
   @import ObjectiveC;
   @import Foundation;
   unsigned int count = 0;
@@ -221,60 +270,83 @@ def generate_class_dump(target, options, clean_command=None):
     uintptr_t bits;
   } ds_cls_struct;
 
-  '''
+  """
     if options.search_protocols:
-        command_script += 'Protocol **allProtocols = objc_copyProtocolList(&count);\n'
+        command_script += "Protocol **allProtocols = objc_copyProtocolList(&count);\n"
     elif clean_command:
-        command_script += '  const char **allClasses = objc_copyClassNamesForImage("' + clean_command + '", &count);'
+        command_script += (
+            '  const char **allClasses = objc_copyClassNamesForImage("'
+            + clean_command
+            + '", &count);'
+        )
     else:
-        command_script += 'Class *allClasses = objc_copyClassList(&count);\n'
+        command_script += "Class *allClasses = objc_copyClassList(&count);\n"
 
-    if options.regular_expression is not None: 
-        command_script += '  NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"' + options.regular_expression + '" options:0 error:nil];\n'
+    if options.regular_expression is not None:
+        command_script += (
+            '  NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"'
+            + options.regular_expression
+            + '" options:0 error:nil];\n'
+        )
 
     if options.search_protocols:
-        command_script += '''  NSMutableString *classesString = [NSMutableString string];
+        command_script += """  NSMutableString *classesString = [NSMutableString string];
   for (int i = 0; i < count; i++) {
     Protocol *ptl =  allProtocols[i];
-        '''
-    else: 
-        command_script += '''  NSMutableString *classesString = [NSMutableString string];
+        """
+    else:
+        command_script += """  NSMutableString *classesString = [NSMutableString string];
       for (int i = 0; i < count; i++) {
-        Class cls =  '''
-        command_script += 'objc_getClass(allClasses[i]);' if clean_command else 'allClasses[i];'
-        command_script += '''
+        Class cls =  """
+        command_script += (
+            "objc_getClass(allClasses[i]);" if clean_command else "allClasses[i];"
+        )
+        command_script += """
         NSString *dsclsName = (NSString*)NSStringFromClass(cls);
         if ((BOOL)[dsclsName hasPrefix:@"__"])  { continue; }
         if ((BOOL)[dsclsName isEqualToString:@"_CNZombie_"] || (BOOL)[dsclsName isEqualToString:@"JSExport"] ||  (BOOL)[dsclsName isEqualToString:@"__NSGenericDeallocHandler"] || (BOOL)[dsclsName isEqualToString:@"_NSZombie_"] || (BOOL)[dsclsName isEqualToString:@"__NSMessageBuilder"] || (BOOL)[dsclsName isEqualToString:@"Object"]  )  { continue; }
-        '''
+        """
 
-    if options.module is not None: 
-        command_script += generate_module_search_sections_string(options.module, target, options.search_protocols)
+    if options.module is not None:
+        command_script += generate_module_search_sections_string(
+            options.module, target, options.search_protocols
+        )
 
     if not options.search_protocols and options.conforms_to_protocol is not None:
-      command_script +=  'if (!class_conformsToProtocol(cls, NSProtocolFromString(@"'+ options.conforms_to_protocol + '"))) { continue; }'
-  
+        command_script += (
+            'if (!class_conformsToProtocol(cls, NSProtocolFromString(@"'
+            + options.conforms_to_protocol
+            + '"))) { continue; }'
+        )
 
     if options.search_protocols:
-        command_script += '  NSString *clsString = (NSString *)NSStringFromProtocol(ptl);\n'
+        command_script += (
+            "  NSString *clsString = (NSString *)NSStringFromProtocol(ptl);\n"
+        )
     else:
-        command_script += '  NSString *clsString = (NSString *)NSStringFromClass(cls);\n'
+        command_script += (
+            "  NSString *clsString = (NSString *)NSStringFromClass(cls);\n"
+        )
     if options.regular_expression is not None:
-        command_script += r'''
+        command_script += r"""
     NSUInteger matches = (NSUInteger)[regex numberOfMatchesInString:clsString options:0 range:NSMakeRange(0, [clsString length])];
     if (matches == 0) {
       continue;
     }
-        '''
-    if options.class_type == 'objc':
-        command_script += ' if ((((ds_cls_struct *)cls)->bits & 1UL) == 1) { continue; }\n'
-    if options.class_type == 'swift':
-        command_script += 'if ((((ds_cls_struct *)cls)->bits & 1UL) == 0) { continue; }\n'
+        """
+    if options.class_type == "objc":
+        command_script += (
+            " if ((((ds_cls_struct *)cls)->bits & 1UL) == 1) { continue; }\n"
+        )
+    if options.class_type == "swift":
+        command_script += (
+            "if ((((ds_cls_struct *)cls)->bits & 1UL) == 0) { continue; }\n"
+        )
 
     if not options.search_protocols and options.superclass is not None:
 
         command_script += 'NSString *parentClassName = @"' + options.superclass + '";'
-        command_script += r'''
+        command_script += r"""
 
         if (!(BOOL)[NSStringFromClass(cls) respondsToSelector:@selector(superclass)]) {
           continue;
@@ -282,87 +354,96 @@ def generate_class_dump(target, options, clean_command=None):
         if (!(BOOL)[NSStringFromClass((Class)[cls superclass]) isEqualToString:parentClassName]) { 
           continue; 
         }
-          '''
+          """
 
     if not options.search_protocols and options.filter is None:
-        if options.verbose: 
-            command_script += r'''
+        if options.verbose:
+            command_script += r"""
         NSString *imageString = [[[[NSString alloc] initWithUTF8String:class_getImageName(cls)] lastPathComponent] stringByDeletingPathExtension];
         [classesString appendString:imageString];
         [classesString appendString:@": "];
-        '''
+        """
 
-
-        command_script += r'''
+        command_script += r"""
           [classesString appendString:(NSString *)clsString];
           [classesString appendString:@"\n"];
         }
 
-        '''
-        command_script += '\n  free(allClasses);\n  [classesString description];'
+        """
+        command_script += "\n  free(allClasses);\n  [classesString description];"
     elif not options.search_protocols:
-        command_script += '\n    if ((BOOL)[cls respondsToSelector:@selector(isSubclassOfClass:)] && (BOOL)[cls isSubclassOfClass:(Class)NSClassFromString(@"' + str(options.filter) + '")]) {\n'    
-        if options.verbose: 
-            command_script += r'''
+        command_script += (
+            '\n    if ((BOOL)[cls respondsToSelector:@selector(isSubclassOfClass:)] && (BOOL)[cls isSubclassOfClass:(Class)NSClassFromString(@"'
+            + str(options.filter)
+            + '")]) {\n'
+        )
+        if options.verbose:
+            command_script += r"""
         NSString *imageString = [[[[NSString alloc] initWithUTF8String:class_getImageName(cls)] lastPathComponent] stringByDeletingPathExtension];
         [classesString appendString:imageString];
         [classesString appendString:@": "];
-        '''
-        command_script += r'''
+        """
+        command_script += r"""
           [classesString appendString:(NSString *)clsString];
           [classesString appendString:@"\n"];
       }
-    }'''
+    }"""
 
-        command_script += '\n  free(allClasses);\n  [classesString description];'
-
+        command_script += "\n  free(allClasses);\n  [classesString description];"
 
     else:
-        command_script += r'''
+        command_script += r"""
         [classesString appendString:(NSString *)clsString];
         [classesString appendString:@"\n"];
 
-          }'''
-        command_script += '\n  free(allProtocols);\n  [classesString description];'
+          }"""
+        command_script += "\n  free(allProtocols);\n  [classesString description];"
     return command_script
+
 
 def generate_module_search_sections_string(module_name, target, useProtocol=False):
     module = target.FindModule(lldb.SBFileSpec(module_name))
     if not module.IsValid():
         result.SetError(
-            "Unable to open module name '{}', to see list of images use 'image list -b'".format(module_name))
+            "Unable to open module name '{}', to see list of images use 'image list -b'".format(
+                module_name
+            )
+        )
         return
 
     if useProtocol:
-        returnString = r'''
+        returnString = r"""
         uintptr_t addr = (uintptr_t)ptl;
-        if (!('''
+        if (!("""
     else:
-        returnString = r'''
+        returnString = r"""
         uintptr_t addr = (uintptr_t)cls;
-        if (!('''
+        if (!("""
     section = module.FindSection("__DATA")
     for idx, subsec in enumerate(section):
         lower_bounds = subsec.GetLoadAddress(target)
         upper_bounds = lower_bounds + subsec.file_size
 
         if idx != 0:
-            returnString += ' || '
-        returnString += '({} <= addr && addr <= {})'.format(lower_bounds, upper_bounds)
+            returnString += " || "
+        returnString += "({} <= addr && addr <= {})".format(lower_bounds, upper_bounds)
 
     dirtysection = module.FindSection("__DATA_DIRTY")
     for subsec in dirtysection:
         lower_bounds = subsec.GetLoadAddress(target)
         upper_bounds = lower_bounds + subsec.file_size
-        returnString += ' || ({} <= addr && addr <= {})'.format(lower_bounds, upper_bounds)
+        returnString += " || ({} <= addr && addr <= {})".format(
+            lower_bounds, upper_bounds
+        )
 
-    returnString += ')) { continue; }\n'
+    returnString += ")) { continue; }\n"
     return returnString
 
+
 def generate_header_script(options, class_to_generate_header):
-    script = '@import ObjectiveC;\n'
+    script = "@import ObjectiveC;\n"
     script += 'NSString *className = @"' + str(class_to_generate_header) + '";\n'
-    script += r'''
+    script += r"""
   //Dang it. LLDB JIT Doesn't like NSString stringWithFormat on device. Need to use stringByAppendingString instead
 
   // Runtime declarations in case we're running on a stripped executable
@@ -584,21 +665,21 @@ def generate_header_script(options, class_to_generate_header):
     [importString appendString:@";"];
     NSString *finalImport = [importString stringByReplacingOccurrencesOfString:@", ;" withString:@";\n\n"];
     [finalString appendString:finalImport];
-  }'''
+  }"""
 
     if options.generate_protocol:
-        script += r'''
+        script += r"""
   [finalString appendString:@"\n@protocol DS_"];
   [finalString appendString:(NSString *)[cls description]];
-  [finalString appendString:@"Protocol <NSObject>"];'''
-    else: 
-        script += r'''
+  [finalString appendString:@"Protocol <NSObject>"];"""
+    else:
+        script += r"""
   [finalString appendString:@"\n@interface "];
   [finalString appendString:(NSString *)[cls description]];
   [finalString appendString:@" : "];
-  [finalString appendString:(NSString *)[[cls superclass] description]];'''
-  
-    script += r'''
+  [finalString appendString:(NSString *)[[cls superclass] description]];"""
+
+    script += r"""
   [finalString appendString:@"\n\n"];
   [finalString appendString:generatedProperties];
   [finalString appendString:@"\n"];
@@ -611,11 +692,13 @@ def generate_header_script(options, class_to_generate_header):
   // Free stuff
   free(properties);
   returnString;
-'''
+"""
     return script
 
+
 def generate_module_header_script(options, modulePath):
-    script = r'''@import @ObjectiveC;
+    script = (
+        r'''@import @ObjectiveC;
   //Dang it. LLDB JIT Doesn't like NSString stringWithFormat on device. Need to use stringByAppendingString instead
 
   // Runtime declarations in case we're running on a stripped executable
@@ -626,13 +709,17 @@ def generate_module_header_script(options, modulePath):
 
   NSMutableString *returnString = [NSMutableString string];
 
-  [returnString appendString:@"''' + modulePath + r'''\n************************************************************\n"];
+  [returnString appendString:@"'''
+        + modulePath
+        + r'''\n************************************************************\n"];
   // Properties
   NSMutableSet *exportedClassesSet = [NSMutableSet set];
   NSMutableSet *exportedProtocolsSet = [NSMutableSet set];
   
   unsigned int count = 0;
-  const char **allClasses = (const char **)objc_copyClassNamesForImage("''' + modulePath + r'''", &count);
+  const char **allClasses = (const char **)objc_copyClassNamesForImage("'''
+        + modulePath
+        + r"""", &count);
   NSMutableDictionary *returnDict = [NSMutableDictionary dictionaryWithCapacity:count];
 
   for (int i = 0; i < count; i++) {
@@ -844,8 +931,10 @@ def generate_module_header_script(options, modulePath):
     [returnString appendString:(NSString *)[returnDict objectForKey:key]];
   }
   returnString; 
-'''
+"""
+    )
     return script
+
 
 def generate_class_info(options):
     if options.verbose_info and not options.info:
@@ -854,14 +943,16 @@ def generate_class_info(options):
     else:
         verboseOutput = False
 
-    if '.' in options.info:
-        classInfo = "(Class)NSClassFromString(@\"" + options.info + "\")"
+    if "." in options.info:
+        classInfo = '(Class)NSClassFromString(@"' + options.info + '")'
     else:
         classInfo = "[" + options.info + " class]"
 
-
-    script = "@import ObjectiveC;\n@import Foundation;\nBOOL verboseOutput = {};\n".format("YES" if verboseOutput else "NO")
-    script +=  r'''
+    script = "@import ObjectiveC;\n@import Foundation;\nBOOL verboseOutput = {};\n".format(
+        "YES" if verboseOutput else "NO"
+    )
+    script += (
+        r"""
 
     #define RO_META               (1<<0)
   // class is a root class
@@ -1216,7 +1307,9 @@ typedef struct class_rw_t {
   
 
 
-  dsobjc_class *dsclass = (dsobjc_class*)''' + classInfo + r''';
+  dsobjc_class *dsclass = (dsobjc_class*)"""
+        + classInfo
+        + r""";
   dsobjc_class *dsclass_meta = (dsobjc_class*)object_getClass((Class)dsclass);
   uint32_t roflags = dsclass->ds_data()->ro->flags;
   uint32_t rwflags = dsclass->ds_data()->flags;
@@ -1463,90 +1556,129 @@ typedef struct class_rw_t {
   
   
   returnString;
-    '''
+    """
+    )
     return script
-
 
 
 def generate_option_parser():
     usage = "usage: %prog [options] /optional/path/to/executable/or/bundle"
     parser = optparse.OptionParser(usage=usage, prog="dump_classes")
 
-    parser.add_option("-f", "--filter",
-                      action="store",
-                      default=None,
-                      dest="filter",
-                      help="List all the classes in the module that are subclasses of class. -f UIView")
+    parser.add_option(
+        "-f",
+        "--filter",
+        action="store",
+        default=None,
+        dest="filter",
+        help="List all the classes in the module that are subclasses of class. -f UIView",
+    )
 
-    parser.add_option("-m", "--module",
-                      action="store",
-                      default=None,
-                      dest="module",
-                      help="Filter class by module. You only need to give the module name and not fullpath")
+    parser.add_option(
+        "-m",
+        "--module",
+        action="store",
+        default=None,
+        dest="module",
+        help="Filter class by module. You only need to give the module name and not fullpath",
+    )
 
-    parser.add_option("-r", "--regular_expression",
-                      action="store",
-                      default=None,
-                      dest="regular_expression",
-                      help="Search the available classes using a regular expression search")
+    parser.add_option(
+        "-r",
+        "--regular_expression",
+        action="store",
+        default=None,
+        dest="regular_expression",
+        help="Search the available classes using a regular expression search",
+    )
 
-    parser.add_option("-t", "--class_type",
-                      action="store",
-                      default=None,
-                      dest="class_type",
-                      help="Specifies the class type, only supports \"objc\" or \"swift\"")
+    parser.add_option(
+        "-t",
+        "--class_type",
+        action="store",
+        default=None,
+        dest="class_type",
+        help='Specifies the class type, only supports "objc" or "swift"',
+    )
 
-    parser.add_option("-v", "--verbose",
-                      action="store_true",
-                      default=False,
-                      dest="verbose",
-                      help="Enables verbose mode for dumping classes. Doesn't work w/ -g or -p")
+    parser.add_option(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        dest="verbose",
+        help="Enables verbose mode for dumping classes. Doesn't work w/ -g or -p",
+    )
 
-    parser.add_option("-g", "--generate_header",
-                      action="store_true",
-                      default=False,
-                      dest="generate_header",
-                      help="Generate a header for the specified class. -h UIView")
+    parser.add_option(
+        "-g",
+        "--generate_header",
+        action="store_true",
+        default=False,
+        dest="generate_header",
+        help="Generate a header for the specified class. -h UIView",
+    )
 
-    parser.add_option("-P", "--generate_protocol",
-                      action="store_true",
-                      default=False,
-                      dest="generate_protocol",
-                      help="Generate a protocol that you can cast to any object")
+    parser.add_option(
+        "-P",
+        "--generate_protocol",
+        action="store_true",
+        default=False,
+        dest="generate_protocol",
+        help="Generate a protocol that you can cast to any object",
+    )
 
-    parser.add_option("-o", "--dump_code_output",
-                      action="store_true",
-                      default=False,
-                      dest="dump_code_output",
-                      help="Dump all classes and code per module, use \"__all\" to dump all ObjC modules known to proc")
+    parser.add_option(
+        "-o",
+        "--dump_code_output",
+        action="store_true",
+        default=False,
+        dest="dump_code_output",
+        help='Dump all classes and code per module, use "__all" to dump all ObjC modules known to proc',
+    )
 
-    parser.add_option("-l", "--search_protocols",
-                      action="store_true",
-                      default=False,
-                      dest="search_protocols",
-                      help="Search for protocols instead of ObjC classes")
+    parser.add_option(
+        "-l",
+        "--search_protocols",
+        action="store_true",
+        default=False,
+        dest="search_protocols",
+        help="Search for protocols instead of ObjC classes",
+    )
 
-    parser.add_option("-p", "--conforms_to_protocol",
-                      action="store",
-                      default=None,
-                      dest="conforms_to_protocol",
-                      help="Only returns the classes that conforms to a particular protocol")
+    parser.add_option(
+        "-p",
+        "--conforms_to_protocol",
+        action="store",
+        default=None,
+        dest="conforms_to_protocol",
+        help="Only returns the classes that conforms to a particular protocol",
+    )
 
-    parser.add_option("-s", "--superclass",
-                      action="store",
-                      default=None,
-                      dest="superclass",
-                      help="Returns only if the parent class is of type")
+    parser.add_option(
+        "-s",
+        "--superclass",
+        action="store",
+        default=None,
+        dest="superclass",
+        help="Returns only if the parent class is of type",
+    )
 
-    parser.add_option("-i", "--info",
-                      action="store",
-                      default=None,
-                      dest="info",
-                      help="Get the info about a Objectie-C class, i.e. dclass -i UIViewController")
+    parser.add_option(
+        "-i",
+        "--info",
+        action="store",
+        default=None,
+        dest="info",
+        help="Get the info about a Objectie-C class, i.e. dclass -i UIViewController",
+    )
 
-    parser.add_option("-I", "--verbose_info",
-                      action="store",
-                      default=None,
-                      dest="verbose_info",
-                      help="Get the info about a Objectie-C class, i.e. dclass -i UIViewController")
+    parser.add_option(
+        "-I",
+        "--verbose_info",
+        action="store",
+        default=None,
+        dest="verbose_info",
+        help="Get the info about a Objectie-C class, i.e. dclass -i UIViewController",
+    )
     return parser

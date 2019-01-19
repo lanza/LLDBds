@@ -25,38 +25,47 @@ import os
 import re
 import subprocess
 
+
 def __lldb_init_module(debugger, internal_dict):
-    debugger.HandleCommand('command script add -f ds.dcpy copyz')
-    debugger.HandleCommand('command script add -f ds.sys sys')
-    debugger.HandleCommand('command script add -f ds.pframework pframework')
+    debugger.HandleCommand("command script add -f ds.dcpy copyz")
+    debugger.HandleCommand("command script add -f ds.sys sys")
+    debugger.HandleCommand("command script add -f ds.pframework pframework")
     if not isXcode():
-        debugger.HandleCommand('settings set frame-format "\033[2mframe #${frame.index}: ${frame.pc}\033[0m{ \x1b\x5b36m${module.file.basename}\x1b\x5b39m{` \x1b\x5b33m${function.name-with-args} \x1b\x5b39m${function.pc-offset}}}\033[2m{ at ${line.file.basename}:${line.number}}\033[0m\n"')
-        debugger.HandleCommand(r'''settings set thread-format "\033[2mthread #${thread.index}: tid = ${thread.id%tid}{, ${frame.pc}}\033[0m{ \033[36m'${module.file.basename}{\033[0m`\x1b\x5b33m${function.name-with-args}\x1b\x5b39m{${frame.no-debug}${function.pc-offset}}}}{ at ${line.file.basename}:${line.number}}{, name = '${thread.name}'}{, queue = '${thread.queue}'}{, activity = '${thread.info.activity.name}'}{, ${thread.info.trace_messages} messages}{, stop reason = ${thread.stop-reason}}{\nReturn value: ${thread.return-value}}{\nCompleted expression: ${thread.completed-expression}}\033[0m\n"''')
-        debugger.HandleCommand(r'''settings set thread-stop-format "thread #${thread.index}{, name = '${thread.name}'}{, queue = '\033[2m${thread.queue}\033[0m'}{, activity = '${thread.info.activity.name}'}{, ${thread.info.trace_messages} messages}{, stop reason = ${thread.stop-reason}}{\nReturn value: ${thread.return-value}}{\nCompleted expression: ${thread.completed-expression}}\n"''')
+        debugger.HandleCommand(
+            'settings set frame-format "\033[2mframe #${frame.index}: ${frame.pc}\033[0m{ \x1b\x5b36m${module.file.basename}\x1b\x5b39m{` \x1b\x5b33m${function.name-with-args} \x1b\x5b39m${function.pc-offset}}}\033[2m{ at ${line.file.basename}:${line.number}}\033[0m\n"'
+        )
+        debugger.HandleCommand(
+            r'''settings set thread-format "\033[2mthread #${thread.index}: tid = ${thread.id%tid}{, ${frame.pc}}\033[0m{ \033[36m'${module.file.basename}{\033[0m`\x1b\x5b33m${function.name-with-args}\x1b\x5b39m{${frame.no-debug}${function.pc-offset}}}}{ at ${line.file.basename}:${line.number}}{, name = '${thread.name}'}{, queue = '${thread.queue}'}{, activity = '${thread.info.activity.name}'}{, ${thread.info.trace_messages} messages}{, stop reason = ${thread.stop-reason}}{\nReturn value: ${thread.return-value}}{\nCompleted expression: ${thread.completed-expression}}\033[0m\n"'''
+        )
+        debugger.HandleCommand(
+            r'''settings set thread-stop-format "thread #${thread.index}{, name = '${thread.name}'}{, queue = '\033[2m${thread.queue}\033[0m'}{, activity = '${thread.info.activity.name}'}{, ${thread.info.trace_messages} messages}{, stop reason = ${thread.stop-reason}}{\nReturn value: ${thread.return-value}}{\nCompleted expression: ${thread.completed-expression}}\n"'''
+        )
 
         k = r'''"{${function.initial-function}{\033[36m${module.file.basename}\033[0m`}{\x1b\x5b33m${function.name-without-args}}\x1b\x5b39m:\n}{${function.changed}{${module.file.basename}\'}{${function.name-without-args}}:}{${current-pc-arrow} }\033[2m${addr-file-or-load}{ <${function.concrete-only-addr-offset-no-padding}>}:\033[0m "'''
-        debugger.HandleCommand('settings set disassembly-format ' + k)
+        debugger.HandleCommand("settings set disassembly-format " + k)
 
 
 def genExpressionOptions(useSwift=False, ignoreBreakpoints=False, useID=True):
     options = lldb.SBExpressionOptions()
-    options.SetIgnoreBreakpoints(ignoreBreakpoints);
-    options.SetTrapExceptions(False);
-    options.SetFetchDynamicValue(lldb.eDynamicCanRunTarget);
-    options.SetTimeoutInMicroSeconds (30*1000*1000) # 30 second timeout
-    options.SetTryAllThreads (True)
+    options.SetIgnoreBreakpoints(ignoreBreakpoints)
+    options.SetTrapExceptions(False)
+    options.SetFetchDynamicValue(lldb.eDynamicCanRunTarget)
+    options.SetTimeoutInMicroSeconds(30 * 1000 * 1000)  # 30 second timeout
+    options.SetTryAllThreads(True)
     options.SetUnwindOnError(True)
     options.SetGenerateDebugInfo(True)
     if useSwift:
-        options.SetLanguage (lldb.eLanguageTypeSwift)
+        options.SetLanguage(lldb.eLanguageTypeSwift)
     else:
-        options.SetLanguage (lldb.eLanguageTypeObjC_plus_plus)
+        options.SetLanguage(lldb.eLanguageTypeObjC_plus_plus)
     options.SetCoerceResultToId(useID)
     return options
+
 
 def getTarget(error=None):
     target = lldb.debugger.GetSelectedTarget()
     return target
+
 
 def isProcStopped():
     target = getTarget()
@@ -66,16 +75,18 @@ def isProcStopped():
 
     state = process.GetState()
     if state == lldb.eStateStopped:
-        return True 
+        return True
     return False
 
+
 def getSectionName(section):
-        name = section.name
-        parent = section.GetParent()
-        while parent:
-            name = parent.name + '.' + name
-            parent = parent.GetParent()
-        return name
+    name = section.name
+    parent = section.GetParent()
+    while parent:
+        name = parent.name + "." + name
+        parent = parent.GetParent()
+    return name
+
 
 def getSection(module=None, name=None):
     if module is None:
@@ -95,7 +106,7 @@ def getSection(module=None, name=None):
     if name is None:
         return module.sections
 
-    sections = name.split('.')
+    sections = name.split(".")
     index = 0
     if len(sections) == 0:
         return None
@@ -113,11 +124,13 @@ def getSection(module=None, name=None):
         index += 1
     return None
 
+
 def create_or_touch_filepath(filepath, contents):
     file = open(filepath, "w")
     file.write(contents)
     file.flush()
     file.close()
+
 
 def dcpy(debugger, command, exe_ctx, result, internal_dict):
     res = lldb.SBCommandReturnObject()
@@ -126,9 +139,10 @@ def dcpy(debugger, command, exe_ctx, result, internal_dict):
     interpreter.HandleCommand(command, res)
     if not res.Succeeded():
         result.SetError(res.GetError())
-        return 
+        return
     os.system("echo '%s' | tr -d '\n'  | pbcopy" % res.GetOutput().rstrip())
-    result.AppendMessage('Content copied to clipboard...')
+    result.AppendMessage("Content copied to clipboard...")
+
 
 def pframework(debugger, command, exe_ctx, result, internal_dict):
     target = getTarget()
@@ -138,101 +152,103 @@ def pframework(debugger, command, exe_ctx, result, internal_dict):
     module = target.module[command]
     if not module:
         result.SetError("Couldn't find module: {}".format(command))
-        return 
-    
-    result.AppendMessage("\"" + module.file.fullpath + "\"")
+        return
+
+    result.AppendMessage('"' + module.file.fullpath + '"')
+
 
 def formatFromData(data, section, outputCount=0):
     name = getSectionName(section)
     output = ([], [])
-    if name == '__PAGEZERO':
+    if name == "__PAGEZERO":
         return ([0], [str(section)])
-    elif name == '__TEXT':
+    elif name == "__TEXT":
         return ([0], [str(section)])
-    elif name == '__TEXT.__stubs':
+    elif name == "__TEXT.__stubs":
         pass
-    elif name == '__TEXT.__stub_helper':
+    elif name == "__TEXT.__stub_helper":
         pass
-    elif name == '__TEXT.__objc_methname':
+    elif name == "__TEXT.__objc_methname":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__cstring':
+    elif name == "__TEXT.__cstring":
         return getStringsFromData(data, outputCount)
-    elif  name == '__TEXT.__objc_classname':
+    elif name == "__TEXT.__objc_classname":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__objc_methtype':
+    elif name == "__TEXT.__objc_methtype":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__const':
+    elif name == "__TEXT.__const":
         pass
-    elif name == '__TEXT.__swift3_typeref':
+    elif name == "__TEXT.__swift3_typeref":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__swift4_typeref':
+    elif name == "__TEXT.__swift4_typeref":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__swift4_reflstr':
+    elif name == "__TEXT.__swift4_reflstr":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__swift3_fieldmd':
+    elif name == "__TEXT.__swift3_fieldmd":
         pass
-    elif name == '__TEXT.__swift3_assocty':
+    elif name == "__TEXT.__swift3_assocty":
         pass
-    elif name == '__TEXT.__swift2_types':
+    elif name == "__TEXT.__swift2_types":
         pass
-    elif name == '__TEXT.__entitlements':
+    elif name == "__TEXT.__entitlements":
         return getStringsFromData(data, outputCount)
-    elif name == '__TEXT.__unwind_info':
+    elif name == "__TEXT.__unwind_info":
         pass
-    elif name == '__TEXT.__eh_frame':
+    elif name == "__TEXT.__eh_frame":
         pass
-    elif name == '__DATA':
+    elif name == "__DATA":
         return ([0], [str(section)])
-    elif name == '__DATA.__got':
+    elif name == "__DATA.__got":
         return getFunctionsFromSection(section, outputCount)
-    elif name == '__DATA.__nl_symbol_ptr':
+    elif name == "__DATA.__nl_symbol_ptr":
         return getFunctionsFromSection(section, outputCount)
-    elif name == '__DATA.__cfstring':
+    elif name == "__DATA.__cfstring":
         return getCFStringsFromData(data, outputCount)
-    elif name == '__DATA.__const':
+    elif name == "__DATA.__const":
         pass
-    elif name == '__DATA.__mod_init_func':
+    elif name == "__DATA.__mod_init_func":
         return getFunctionsFromSection(section, outputCount)
-    elif name == '__DATA.__la_symbol_ptr':
+    elif name == "__DATA.__la_symbol_ptr":
         return getLazyPointersFromData(data, section, outputCount)
-    elif name == '__DATA.__objc_classlist':
+    elif name == "__DATA.__objc_classlist":
         return getObjCClassData(section, outputCount)
-    elif name == '__DATA.__objc_catlist':
+    elif name == "__DATA.__objc_catlist":
         return getObjcCategoriesFromData(section, outputCount)
-    elif name == '__DATA.__objc_nlcatlist':
+    elif name == "__DATA.__objc_nlcatlist":
         return getObjcCategoriesFromData(section, outputCount)
-    elif name == '__DATA.__objc_protolist':
+    elif name == "__DATA.__objc_protolist":
         return getProtocols(section, outputCount)
-    elif name == '__DATA.__objc_protorefs':
+    elif name == "__DATA.__objc_protorefs":
         return getProtocols(section, outputCount)
-    elif name == '__DATA.__objc_nlclslist':
+    elif name == "__DATA.__objc_nlclslist":
         return getObjCClassData(section, outputCount)
-    elif name == '__DATA.__objc_imageinfo':
+    elif name == "__DATA.__objc_imageinfo":
         return ([0], [str(section)])
-    elif name == '__DATA.__objc_const':
+    elif name == "__DATA.__objc_const":
         return getSymbolsForSection(section, outputCount)
-    elif name == '__DATA.__objc_selrefs':
+    elif name == "__DATA.__objc_selrefs":
         return getObjCSelRefs(section, outputCount)
-    elif name == '__DATA.__objc_classrefs':
+    elif name == "__DATA.__objc_classrefs":
         return getObjCClassData(section, outputCount)
-    elif name == '__DATA.__objc_superrefs':
+    elif name == "__DATA.__objc_superrefs":
         return getObjCClassData(section, outputCount)
-    elif name == '__DATA.__objc_ivar':
+    elif name == "__DATA.__objc_ivar":
         return getIvars(section, outputCount)
-    elif name == '__DATA.__objc_data':
+    elif name == "__DATA.__objc_data":
         pass
-    elif name == '__DATA.__data':
+    elif name == "__DATA.__data":
         return getSymbolsForSection(section, outputCount, False)
-    elif name == '__DATA.__bss':
+    elif name == "__DATA.__bss":
         return getSymbolsForSection(section, outputCount, False)
-    elif name == '__DATA.__common':
+    elif name == "__DATA.__common":
         return getSymbolsForSection(section, outputCount, False)
-    elif name == '__LINKEDIT':
+    elif name == "__LINKEDIT":
         return getLINKEDITData(section)
 
     return output
 
-def getSymbolsForSection(section, outputCount, shouldFilterDataOnly = True):
+
+def getSymbolsForSection(section, outputCount, shouldFilterDataOnly=True):
     # Grab all the DATA related symbols
     module = section.addr.module
     target = getTarget()
@@ -248,22 +264,20 @@ def getSymbolsForSection(section, outputCount, shouldFilterDataOnly = True):
 
     process = target.GetProcess()
 
+    #       error = lldb.SBError()
+    # ptr = process.ReadPointerFromMemory(loadAddr + i * ptrsize, error)
+    # if error.success == True:
 
-            #       error = lldb.SBError()
-        # ptr = process.ReadPointerFromMemory(loadAddr + i * ptrsize, error)
-        # if error.success == True:
+    #     sec = target.ResolveLoadAddress(ptr).section
+    #     if sec.IsValid():
+    #         if sec.name == "__stub_helper":
+    #             descriptions.append("-")
+    #         else:
+    #             descriptions.append("+")
+    #     else:
+    #         descriptions.append(None)
 
-        #     sec = target.ResolveLoadAddress(ptr).section
-        #     if sec.IsValid():
-        #         if sec.name == "__stub_helper":
-        #             descriptions.append("-")
-        #         else:
-        #             descriptions.append("+")
-        #     else:
-        #         descriptions.append(None)
-
-
-        # stringList.append(retstr)
+    # stringList.append(retstr)
     err = lldb.SBError()
     for symbol in symbols:
         if symbol.GetStartAddress().GetSection() == section:
@@ -271,14 +285,16 @@ def getSymbolsForSection(section, outputCount, shouldFilterDataOnly = True):
             symbol_load_address = symbol.GetStartAddress().GetLoadAddress(target)
             symbol_end_address = symbol.GetEndAddress().GetLoadAddress(target)
 
-            size = symbol_end_address-symbol_load_address
+            size = symbol_end_address - symbol_load_address
             indeces.append((symbol_load_address - section_load_addr, size))
-            
+
             if size % 4 != 0 or size > 8:
                 descriptions.append(None)
                 continue
 
-            read_memory =  "{0:#0{1}x}".format(process.ReadUnsignedFromMemory(symbol_load_address, size, err), size *2)
+            read_memory = "{0:#0{1}x}".format(
+                process.ReadUnsignedFromMemory(symbol_load_address, size, err), size * 2
+            )
             if err.success == True:
                 descriptions.append(read_memory)
             else:
@@ -286,6 +302,7 @@ def getSymbolsForSection(section, outputCount, shouldFilterDataOnly = True):
                 descriptions.append(None)
 
     return (indeces, symbolList, descriptions)
+
 
 def getIvars(section, outputCount):
     target = getTarget()
@@ -295,20 +312,23 @@ def getIvars(section, outputCount):
     ptrsize = getType("void*").GetByteSize()
     sz = section.GetByteSize() / ptrsize
     addr = section.GetLoadAddress(target)
-    script = "int dssize = {};\nuintptr_t *ivarOffsets[{}];\nuintptr_t **ivarPointer = (uintptr_t**){};".format(sz, sz, addr)
-    script += r'''
+    script = "int dssize = {};\nuintptr_t *ivarOffsets[{}];\nuintptr_t **ivarPointer = (uintptr_t**){};".format(
+        sz, sz, addr
+    )
+    script += r"""
 memset(&ivarOffsets, 0, sizeof(ivarOffsets));
 for (int i = 0; i < dssize; i++) {
     ivarOffsets[i] = ivarPointer[i];
 }
-ivarOffsets'''
+ivarOffsets"""
     val = target.EvaluateExpression(script, genExpressionOptions(False, True, True))
-    for i in  range(val.GetNumChildren()):
+    for i in range(val.GetNumChildren()):
         x = val.GetChildAtIndex(i)
         indeces.append(i * ptrsize)
         stringList.append(hex(x.unsigned))
 
-    return (indeces, stringList) 
+    return (indeces, stringList)
+
 
 def getProtocols(section, outputCount):
     target = getTarget()
@@ -318,21 +338,24 @@ def getProtocols(section, outputCount):
     ptrsize = getType("void*").GetByteSize()
     sz = section.GetByteSize() / ptrsize
     addr = section.GetLoadAddress(target)
-    script = "int dssize = {};\nchar *protNames[{}];\nClass *clsPointer = (Class*){};".format(sz, sz, addr)
-    script += r'''
+    script = "int dssize = {};\nchar *protNames[{}];\nClass *clsPointer = (Class*){};".format(
+        sz, sz, addr
+    )
+    script += r"""
 @import ObjectiveC;
 memset(&protNames, 0, sizeof(protNames));
 for (int i = 0; i < dssize; i++) {
     protNames[i] = (char*)protocol_getName(clsPointer[i]);
 }
-protNames'''
+protNames"""
     val = target.EvaluateExpression(script, genExpressionOptions(False, True, True))
-    for i in  range(val.GetNumChildren()):
+    for i in range(val.GetNumChildren()):
         x = val.GetChildAtIndex(i)
         indeces.append(i * ptrsize)
-        stringList.append(x.summary.replace("\"", ""))
+        stringList.append(x.summary.replace('"', ""))
 
     return (indeces, stringList)
+
 
 def getLINKEDITData(section):
     addr = section.addr
@@ -345,9 +368,9 @@ def getLINKEDITData(section):
     stringList = []
 
     script = generateMachOHeaders()
-    script += 'uintptr_t baseAddress = (uintptr_t){};\n'.format(fileHeaderAddr)
+    script += "uintptr_t baseAddress = (uintptr_t){};\n".format(fileHeaderAddr)
     # script += 'uintptr_t linkeditAddress = (uintptr_t){};\n'.format(LINKEDITAddr)
-    script += r'''
+    script += r"""
 
 @import Foundation;
 ds_symtab_command *symtab_cmd = NULL;
@@ -367,10 +390,10 @@ for (int i = 0; i < dsheader->ncmds; i++, cur += cur_seg->cmdsize) {
     cur_seg = (ds_segment *)cur;
     if (cur_seg->cmd == 0x2) { // LC_SYMTAB
         symtab_cmd = (ds_symtab_command *)cur_seg;
-      
+
     } else if (cur_seg->cmd == 0xb) { // LC_DYSYMTAB
         dysymtab_cmd = (ds_dysymtab_command *)cur_seg;
-    } 
+    }
     else if (cur_seg->cmd == 0x19 && strcmp(cur_seg->segname, "__LINKEDIT") == 0) {
         // pagezero = cur_seg->vmsize;
         linkeditSegment = cur_seg;
@@ -389,55 +412,53 @@ if (symtab_cmd) {
     [returnString appendString:@"LC_SYMTAB\n"];
     [returnString appendString:(id)[NSString stringWithFormat:@"\t[%012p] symtab (%d entries)\n", symtab, symtab_cmd->nsyms]];
     [returnString appendString:(id)[NSString stringWithFormat:@"\t[%012p] strtab (size %d)\n", strtab, symtab_cmd->strsize]];
-} 
+}
 
 if (dysymtab_cmd) {
     [returnString appendString:@"LC_DYSYMTAB\n"];
     if (dysymtab_cmd->nlocalsym > 0) {
         [returnString appendString:[NSString stringWithFormat:@"\t[%p] local symbols (%d entries, index %d)\n", &symtab[dysymtab_cmd->ilocalsym],  dysymtab_cmd->nlocalsym, dysymtab_cmd->ilocalsym]];
-    } else { 
+    } else {
         [returnString appendString:@"\tno local symbols\n"];
     }
 
     if (dysymtab_cmd->nextdefsym > 0) {
         [returnString appendString:[NSString stringWithFormat:@"\t[%p] external symbols (%d entries, index %d)\n", &symtab[dysymtab_cmd->iextdefsym], dysymtab_cmd->nextdefsym, dysymtab_cmd->iextdefsym]];
-    } else { 
+    } else {
         [returnString appendString:@"\tno external symbols\n"];
     }
 
     if (dysymtab_cmd->nundefsym > 0) {
         [returnString appendString:[NSString stringWithFormat:@"\t[%p] undefined symbols (%d entries, index %d)\n", &symtab[dysymtab_cmd->iundefsym], dysymtab_cmd->nundefsym, dysymtab_cmd->iundefsym]];
-    } else { 
+    } else {
         [returnString appendString:@"\tno undefined symbols\n"];
     }
-    
+
     if (dysymtab_cmd->ntoc > 0) {
         [returnString appendString:[NSString stringWithFormat:@"\t[%p] TOC (%d entries, index %d)\n", &symtab[dysymtab_cmd->tocoff], dysymtab_cmd->ntoc, dysymtab_cmd->tocoff]];
-    } else { 
+    } else {
         [returnString appendString:@"\tno TOC\n"];
     }
 
     if (dysymtab_cmd->nmodtab > 0) {
         [returnString appendString:[NSString stringWithFormat:@"\t[%p] modtab (%d entries, index %d)\n", &symtab[dysymtab_cmd->modtaboff], dysymtab_cmd->nmodtab, dysymtab_cmd->modtaboff]];
-    } else { 
+    } else {
         [returnString appendString:@"\tno modtab\n"];
     }
 
     if (dysymtab_cmd->nindirectsyms > 0) {
         [returnString appendString:[NSString stringWithFormat:@"\t[%p] indirect symbols (%d entries, index %d)\n", &symtab[dysymtab_cmd->indirectsymoff], dysymtab_cmd->nindirectsyms, dysymtab_cmd->indirectsymoff]];
-    } else { 
+    } else {
         [returnString appendString:@"\tno indirect symbols\n"];
     }
-}  
+}
 returnString
-    '''
+    """
     val = target.EvaluateExpression(script, genExpressionOptions(False, True, True))
     indeces.append(0)
     stringList.append(val.description)
 
     return (indeces, stringList)
-
-
 
 
 def getObjCClassData(section, outputCount=0):
@@ -449,21 +470,24 @@ def getObjCClassData(section, outputCount=0):
     ptrsize = getType("void*").GetByteSize()
     sz = section.GetByteSize() / ptrsize
     addr = section.GetLoadAddress(target)
-    script = "int dssize = {};\nchar *classNames[{}];\nClass *clsPointer = (Class*){};".format(sz, sz,  addr)
-    script += r'''
+    script = "int dssize = {};\nchar *classNames[{}];\nClass *clsPointer = (Class*){};".format(
+        sz, sz, addr
+    )
+    script += r"""
 memset(&classNames, 0, sizeof(classNames))
 for (int i = 0; i < dssize; i++) {
     classNames[i] = (char*)class_getName(clsPointer[i]);
 }
-classNames'''
+classNames"""
     val = target.EvaluateExpression(script, genExpressionOptions(False, True, True))
 
-    for i in  range(val.GetNumChildren()):
+    for i in range(val.GetNumChildren()):
         x = val.GetChildAtIndex(i)
         indeces.append(i * ptrsize)
-        stringList.append(x.summary.replace("\"", ""))
+        stringList.append(x.summary.replace('"', ""))
 
     return (indeces, stringList)
+
 
 def getSectionData(section, outputCount=0):
     # loadAddr = section.addr.GetLoadAddress(getTarget())
@@ -474,6 +498,7 @@ def getSectionData(section, outputCount=0):
     # endAddr = loadAddr + size
     # addr = section.addr
     return formatFromData(data, section, outputCount)
+
 
 def getFunctionsFromSection(section, outputCount=0):
     target = getTarget()
@@ -489,14 +514,14 @@ def getFunctionsFromSection(section, outputCount=0):
     script = "uintptr_t retstring[{}];\n".format(size)
     script += "uintptr_t *baseAddress = (uintptr_t *){};\n".format(baseAddress)
     script += "int size = {};\n".format(size)
-    script += r'''
+    script += r"""
     memset(&retstring, 0, sizeof(retstring));
 
     for (int i = 0; i < size; i++) {
         retstring[i] = baseAddress[i];
     }
     retstring
-'''
+"""
     options = genExpressionOptions(False, True, True)
     val = target.EvaluateExpression(script, options)
 
@@ -510,6 +535,7 @@ def getFunctionsFromSection(section, outputCount=0):
         functionList.append(retval)
 
     return (indeces, functionList, descriptions)
+
 
 def getObjCSelRefs(section, outputCount):
     target = getTarget()
@@ -537,7 +563,7 @@ def getCFStringsFromData(data, outputCount):
     stringList = []
     marker = 0
     target = getTarget()
-    intType = getType('int*')
+    intType = getType("int*")
 
     for i, x in enumerate(dataArray):
         if i % 4 != 2:
@@ -549,15 +575,16 @@ def getCFStringsFromData(data, outputCount):
 
         size = dataArray[i + 1]
         addr = target.ResolveFileAddress(x)
-        charPointerType = getType('char', size)
-        strValue = target.CreateValueFromAddress('somename', addr, charPointerType)
+        charPointerType = getType("char", size)
+        strValue = target.CreateValueFromAddress("somename", addr, charPointerType)
         stringList.append(strValue.summary)
         indeces.append(i - 2)
 
     return (indeces, stringList)
 
+
 def generateMachOHeaders():
-    return r'''
+    return r"""
 
 @import MachO;
 
@@ -619,7 +646,7 @@ typedef struct nlist {
     uint32_t n_value;   /* value of this symbol (or stab offset) */
 } dsnlist;
 
-#else 
+#else
 
 typedef struct mach_header {
     uint32_t    magic;      /* mach magic number identifier */
@@ -702,25 +729,34 @@ typedef struct  {
     uint32_t locreloff; /* offset to local relocation entries */
     uint32_t nlocrel;   /* number of local relocation entries */
 } ds_dysymtab_command;
-    '''
+    """
+
 
 def generateLazyPointerScriptWithOptions(section):
     ptrsize = getType("void*").GetByteSize()
     size = section.GetByteSize() / ptrsize
-    baseAddress = section.addr.module.FindSection("__TEXT").addr.GetLoadAddress(getTarget())
-    linkeditAddress = section.addr.module.FindSection("__LINKEDIT").addr.GetLoadAddress(getTarget())
-    la_symbol_addr = section.addr.module.FindSection("__DATA").FindSubSection("__la_symbol_ptr").addr.GetLoadAddress(getTarget())
-    script = 'char *retstring[' + str(size) + '];\n'
-    script += 'uint64_t baseAddress = (uintptr_t)' + str(baseAddress) + ';\n'
-    script += 'uint64_t linkeditAddress = (uintptr_t)' + str(linkeditAddress) + ';\n'
+    baseAddress = section.addr.module.FindSection("__TEXT").addr.GetLoadAddress(
+        getTarget()
+    )
+    linkeditAddress = section.addr.module.FindSection("__LINKEDIT").addr.GetLoadAddress(
+        getTarget()
+    )
+    la_symbol_addr = (
+        section.addr.module.FindSection("__DATA")
+        .FindSubSection("__la_symbol_ptr")
+        .addr.GetLoadAddress(getTarget())
+    )
+    script = "char *retstring[" + str(size) + "];\n"
+    script += "uint64_t baseAddress = (uintptr_t)" + str(baseAddress) + ";\n"
+    script += "uint64_t linkeditAddress = (uintptr_t)" + str(linkeditAddress) + ";\n"
     script += generateMachOHeaders()
-    script += '''
+    script += """
   memset(&retstring, 0, sizeof(retstring));
 
   ds_symtab_command *symtab_cmd = NULL;
   ds_dysymtab_command *dysymtab_cmd = NULL;
   char *strtab = NULL;
-  
+
   ds_header *dsheader = (ds_header *)baseAddress;
   ds_section *la_section = NULL;
 
@@ -728,7 +764,7 @@ def generateLazyPointerScriptWithOptions(section):
   ds_segment *linkeditSegment = NULL;
   struct nlist_64 *symtab = NULL;
   uintptr_t pagezero = 0;
-  
+
   uintptr_t cur = baseAddress + sizeof(ds_header);
   for (int i = 0; i < dsheader->ncmds; i++, cur += cur_seg->cmdsize) {
     cur_seg = (ds_segment *)cur;
@@ -737,7 +773,7 @@ def generateLazyPointerScriptWithOptions(section):
 
     } else if (cur_seg->cmd == 0xb) { // LC_DYSYMTAB
       dysymtab_cmd = (ds_dysymtab_command *)cur_seg;
-    } 
+    }
     else if (cur_seg->cmd == 0x19 && strcmp(cur_seg->segname, "__LINKEDIT") == 0) {
         linkeditSegment = cur_seg;
     }
@@ -747,7 +783,7 @@ def generateLazyPointerScriptWithOptions(section):
     else if (cur_seg->cmd == 0x19 && strcmp(cur_seg->segname, "__DATA") == 0) {
         uintptr_t curs = cur + sizeof(ds_segment);
         for (int j = 0; j < cur_seg->nsects; j++, curs += sizeof(ds_section)) {
-            ds_section *cur_sect = (ds_section*)curs; 
+            ds_section *cur_sect = (ds_section*)curs;
             if (strcmp(cur_sect->sectname, "__la_symbol_ptr") == 0) {
                 la_section = (ds_section *)curs;
                 break;
@@ -755,7 +791,7 @@ def generateLazyPointerScriptWithOptions(section):
         }
     }
   }
-  
+
   uintptr_t linkedit_base = baseAddress + linkeditSegment->vmaddr - linkeditSegment->fileoff - pagezero;
   strtab = (char *)(symtab_cmd->stroff + linkedit_base);
   symtab = (struct nlist_64 *)(symtab_cmd->symoff + linkedit_base);
@@ -788,15 +824,16 @@ def generateLazyPointerScriptWithOptions(section):
   }
 
   retstring
-    '''
+    """
     return script
+
 
 def getObjcCategoriesFromData(section, outputCount=0):
     target = getTarget()
     ptrsize = getType("void*").GetByteSize()
     sz = section.GetByteSize() / ptrsize
     addr = section.GetLoadAddress(target)
-    script = r'''
+    script = r"""
 struct ds_category_t {
     const char *name;
     Class /* classref_t */ cls;
@@ -810,31 +847,34 @@ struct ds_ret_category {
     char *name;
     char *className;
 };
-'''
-    
-    script += "int dssize = {};\nstruct ds_ret_category classNames[{}];\nstruct ds_category_t **categoryPointer = (struct ds_category_t**){};".format(sz, sz,  addr)
-    script += r'''
+"""
+
+    script += "int dssize = {};\nstruct ds_ret_category classNames[{}];\nstruct ds_category_t **categoryPointer = (struct ds_category_t**){};".format(
+        sz, sz, addr
+    )
+    script += r"""
 memset(&classNames, 0, sizeof(classNames));
 for (int i = 0; i < dssize; i++) {
     classNames[i].name = (char*)(categoryPointer[i]->name);
     classNames[i].className = (char*)(class_getName(categoryPointer[i]->cls));
 }
-classNames'''
+classNames"""
     indeces = []
     stringList = []
     descriptions = []
     # lldb.debugger.HandleCommand('exp -l objc++ -O -g -- ' + script)
     # return (indeces, stringList)
     val = target.EvaluateExpression(script, genExpressionOptions(False, True, True))
-    for i in  range(val.GetNumChildren()):
+    for i in range(val.GetNumChildren()):
         x = val.GetChildAtIndex(i)
         # x.GetChildAtIndex(0) # category name
         # x.GetChildAtIndex(1) # class name
         indeces.append(i * ptrsize)
-        stringList.append(x.GetChildAtIndex(1).summary.strip('\"'))
-        descriptions.append("(" + x.GetChildAtIndex(0).summary.strip('\"') + ")")
+        stringList.append(x.GetChildAtIndex(1).summary.strip('"'))
+        descriptions.append("(" + x.GetChildAtIndex(0).summary.strip('"') + ")")
 
     return (indeces, stringList, descriptions)
+
 
 def getLazyPointersFromData(data, section, outputCount=0):
     script = generateLazyPointerScriptWithOptions(section)
@@ -848,18 +888,17 @@ def getLazyPointersFromData(data, section, outputCount=0):
     options = genExpressionOptions(False, True, True)
     val = target.EvaluateExpression(script, options)
 
-    # for dbg'ing 
+    # for dbg'ing
     # lldb.debugger.HandleCommand('exp -l objc++ -O -g -- ' + script)
-        # print(res)
+    # print(res)
 
     process = target.GetProcess()
     loadAddr = section.addr.GetLoadAddress(target)
 
-
     for i in range(val.GetNumChildren()):
         x = val.GetChildAtIndex(i)
         indeces.append(i * ptrsize)
-        retstr = x.summary.replace("\"", "")
+        retstr = x.summary.replace('"', "")
 
         error = lldb.SBError()
         ptr = process.ReadPointerFromMemory(loadAddr + i * ptrsize, error)
@@ -874,9 +913,9 @@ def getLazyPointersFromData(data, section, outputCount=0):
             else:
                 descriptions.append(None)
 
-
         stringList.append(retstr)
     return (indeces, stringList, descriptions)
+
 
 def getStringsFromData(_data, outputCount=0):
     indeces = []
@@ -886,7 +925,9 @@ def getStringsFromData(_data, outputCount=0):
     #  Hack, f it
     if outputCount == 1:
         err = lldb.SBError()
-        val = target.EvaluateExpression('(char *){}'.format(_data.GetAddress(err, 0)), genExpressionOptions())
+        val = target.EvaluateExpression(
+            "(char *){}".format(_data.GetAddress(err, 0)), genExpressionOptions()
+        )
         print(val)
 
     #  Force conversion of "unknown" data to known of char**
@@ -906,69 +947,70 @@ def getStringsFromData(_data, outputCount=0):
             break
         if x == 0:
             indeces.append(marker)
-            stringList.append(''.join([chr(i) for i in dataArray[marker:index]]))
+            stringList.append("".join([chr(i) for i in dataArray[marker:index]]))
             marker = index + 1
     if len(stringList) == 0:
-        stringList.append(''.join([chr(i) for i in data.sint8]))
+        stringList.append("".join([chr(i) for i in data.sint8]))
         indeces.append(0)
 
     return (indeces, stringList)
 
 
-
-
-def attrStr(msg, color='black'):
+def attrStr(msg, color="black"):
     if isXcode():
         return msg
-        
+
     clr = {
-    'cyan' : '\033[36m',
-    'grey' : '\033[2m',
-    'blink' : '\033[5m',
-    'redd' : '\033[41m',
-    'greend' : '\033[42m',
-    'yellowd' : '\033[43m',
-    'pinkd' : '\033[45m',
-    'cyand' : '\033[46m',
-    'greyd' : '\033[100m',
-    'blued' : '\033[44m',
-    'whiteb' : '\033[7m',
-    'pink' : '\033[95m',
-    'blue' : '\033[94m',
-    'green' : '\033[92m',
-    'yellow' : '\x1b\x5b33m',
-    'red' : '\033[91m',
-    'bold' : '\033[1m',
-    'underline' : '\033[4m'
+        "cyan": "\033[36m",
+        "grey": "\033[2m",
+        "blink": "\033[5m",
+        "redd": "\033[41m",
+        "greend": "\033[42m",
+        "yellowd": "\033[43m",
+        "pinkd": "\033[45m",
+        "cyand": "\033[46m",
+        "greyd": "\033[100m",
+        "blued": "\033[44m",
+        "whiteb": "\033[7m",
+        "pink": "\033[95m",
+        "blue": "\033[94m",
+        "green": "\033[92m",
+        "yellow": "\x1b\x5b33m",
+        "red": "\033[91m",
+        "bold": "\033[1m",
+        "underline": "\033[4m",
     }[color]
-    return clr + msg + ('\x1b\x5b39m' if clr == 'yellow' else '\033[0m')
+    return clr + msg + ("\x1b\x5b39m" if clr == "yellow" else "\033[0m")
+
 
 def isXcode():
     if "unknown" == os.environ.get("TERM", "unknown"):
         return True
-    else: 
+    else:
         return False
+
 
 def getAddress(address):
     target = getTarget()
     return target.ResolveLoadAddress(address)
 
+
 def getType(typeStr, count=None):
     target = getTarget()
 
-    if typeStr.startswith('char'):
+    if typeStr.startswith("char"):
         varType = lldb.eBasicTypeChar
-    elif typeStr.startswith('int'):
+    elif typeStr.startswith("int"):
         varType = lldb.eBasicTypeInt
-    elif typeStr.startswith('bool'):
+    elif typeStr.startswith("bool"):
         varType = lldb.eBasicTypeBool
-    elif typeStr.startswith('double'):
+    elif typeStr.startswith("double"):
         varType = lldb.eBasicTypeDouble
-    elif typeStr.startswith('id'):
+    elif typeStr.startswith("id"):
         varType = lldb.eBasicTypeObjCID
-    elif typeStr.startswith('class'):
+    elif typeStr.startswith("class"):
         varType = lldb.eBasicTypeObjCClass
-    elif typeStr.startswith('void'):
+    elif typeStr.startswith("void"):
         varType = lldb.eBasicTypeVoid
 
     t = target.GetBasicType(varType)
@@ -982,7 +1024,7 @@ def getType(typeStr, count=None):
 
 
 def sys(debugger, command, exe_ctx, result, internal_dict):
-    search =  re.search('(?<=\$\().*(?=\))', command)
+    search = re.search("(?<=\$\().*(?=\))", command)
     if search:
         cleanCommand = search.group(0)
         res = lldb.SBCommandReturnObject()
@@ -996,15 +1038,20 @@ def sys(debugger, command, exe_ctx, result, internal_dict):
             # result.SetError("NoneType for {}".format(cleanCommand))
             return
 
-        command = command.replace('$(' + cleanCommand + ')', res.GetOutput().rstrip())
+        command = command.replace("$(" + cleanCommand + ")", res.GetOutput().rstrip())
     # command = re.search('\s*(?<=sys).*', command).group(0)
     my_env = os.environ.copy()
     my_env["PATH"] = "/usr/local/bin:" + my_env["PATH"]
-    output = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, env=my_env).communicate()
-    retOutput = ''
+    output = subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        shell=True,
+        env=my_env,
+    ).communicate()
+    retOutput = ""
     if output[1]:
         retOutput += output[1]
-    retOutput += output[0] 
+    retOutput += output[0]
     result.AppendMessage(retOutput)
-
-

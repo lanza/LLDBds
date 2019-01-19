@@ -1,19 +1,20 @@
-
-
 import lldb
 import os
 import shlex
 import optparse
 import ds
 
+
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-    'command script add -f info.handle_command info -h "Get info about an address in memory"')
+        'command script add -f info.handle_command info -h "Get info about an address in memory"'
+    )
+
 
 def handle_command(debugger, command, exe_ctx, result, internal_dict):
-    '''
+    """
     Documentation for how to use info goes here 
-    '''
+    """
 
     command_args = shlex.split(command, posix=False)
     parser = generate_option_parser()
@@ -23,10 +24,9 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
         result.SetError(parser.usage)
         return
 
-
     if len(args) != 1:
         result.SetError("Expects an address")
-        return        
+        return
 
     if args[0].startswith("0x") or args[0].startswith("0X"):
         address = int(args[0], 16)
@@ -46,13 +46,11 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
     if foundAddress == False:
         foundAddress, returnDescription = tryHeapAddress(addr, target, options)
 
-
     if foundAddress:
-        result.AppendMessage('{}'.format(returnDescription))
+        result.AppendMessage("{}".format(returnDescription))
     else:
-        result.SetError('Couldn\'t find info for address \'{}\''.format(addr))
+        result.SetError("Couldn't find info for address '{}'".format(addr))
 
-    
 
 def tryMachOAddress(addr, target, options):
 
@@ -62,14 +60,16 @@ def tryMachOAddress(addr, target, options):
         return False, ""
 
     sectionName = section.GetName()
-    tmpS = section 
+    tmpS = section
     while tmpS.GetParent().IsValid():
         tmpS = tmpS.GetParent()
         sectionName = "{}.{}".format(tmpS.GetName(), sectionName)
 
     module = addr.GetModule()
     if module.IsValid():
-        sectionName = ", {},{}".format(addr.GetModule().GetFileSpec().GetFilename(), sectionName)
+        sectionName = ", {},{}".format(
+            addr.GetModule().GetFileSpec().GetFilename(), sectionName
+        )
 
     symbol = addr.GetSymbol()
     #  Is it a known function?
@@ -87,7 +87,9 @@ def tryMachOAddress(addr, target, options):
             if symbol.GetMangledName():
                 returnDescription += ", ({})".format(symbol.GetMangledName())
 
-            returnDescription += ", External: {}".format("YES" if symbol.IsSynthetic() else "NO")
+            returnDescription += ", External: {}".format(
+                "YES" if symbol.IsSynthetic() else "NO"
+            )
 
     tpe = target.GetBasicType(lldb.eBasicTypeNullPtr).GetPointerType()
     val = target.CreateValueFromAddress("__ds_unused", addr, tpe)
@@ -96,18 +98,17 @@ def tryMachOAddress(addr, target, options):
         k = ds.formatFromData(data, section, 1)
         # returnDescription += '{}'.format(k[1])
 
-
     returnDescription += sectionName
     return True, returnDescription
 
 
-
-
 def tryHeapAddress(addr, target, options):
     returnDescription = ""
-    cleanCommand = 'const void * ptr = (const void *){};'.format(addr.GetLoadAddress(target))
-    cleanCommand += 'BOOL verboseMode = {};'.format("YES" if options.verbose else "NO")
-    cleanCommand += r'''
+    cleanCommand = "const void * ptr = (const void *){};".format(
+        addr.GetLoadAddress(target)
+    )
+    cleanCommand += "BOOL verboseMode = {};".format("YES" if options.verbose else "NO")
+    cleanCommand += r"""
 
 #ifndef _MALLOC_MALLOC_H_
 
@@ -295,7 +296,7 @@ typedef struct class_rw_t {
     
 // 0x00007ffffffffff8UL
     retString
-    '''
+    """
 
     # lldb.debugger.HandleCommand("exp -l objc -- " + cleanCommand)
     # return False, returnDescription
@@ -303,27 +304,25 @@ typedef struct class_rw_t {
     if val.GetValueAsUnsigned() == 0:
         return False, ""
 
-
-    returnDescription += '{}'.format( val.description)
-
-
+    returnDescription += "{}".format(val.description)
 
     return True, returnDescription
-
 
 
 def generate_option_parser():
     usage = "usage: %prog [options] TODO Description Here :]"
     parser = optparse.OptionParser(usage=usage, prog="info")
-    parser.add_option("-v", "--verbose",
-                      action="store_true",
-                      default=None,
-                      dest="verbose",
-                      help="Use verbose amount of info")
+    parser.add_option(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=None,
+        dest="verbose",
+        help="Use verbose amount of info",
+    )
     # parser.add_option("-c", "--check_if_true",
     #                   action="store_true",
     #                   default=False,
     #                   dest="store_true",
     #                   help="This is a placeholder option to show you how to use options with bools")
     return parser
-    

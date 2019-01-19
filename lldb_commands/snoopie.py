@@ -1,20 +1,21 @@
-
-
 import lldb
 import os
 import shlex
 import optparse
 from stat import *
 
+
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-    'command script add -f snoopie.handle_command snoopie -h "Profile stripped ObjC methods using DTrace"')
+        'command script add -f snoopie.handle_command snoopie -h "Profile stripped ObjC methods using DTrace"'
+    )
+
 
 def handle_command(debugger, command, exe_ctx, result, internal_dict):
-    '''
+    """
     Generates a DTrace sciprt that will only profile classes implemented
     in the main executable irregardless if binary is stripped or not.
-    '''
+    """
     # command_args = shlex.split(command)
     command_args = shlex.split(command, posix=False)
     parser = generate_option_parser()
@@ -24,17 +25,17 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
         result.SetError(parser.usage)
         return
 
-
     script = generateDTraceScript(exe_ctx.target, options)
     pid = exe_ctx.process.id
-    filename = '/tmp/lldb_dtrace_profile_snoopie.d'
-    
+    filename = "/tmp/lldb_dtrace_profile_snoopie.d"
+
     createOrTouchFilePath(filename, script)
-    cmd = 'sudo {0}  -p {1}'.format(filename, pid)
-    copycommand = 'echo \"{} \" | pbcopy'.format(cmd)
+    cmd = "sudo {0}  -p {1}".format(filename, pid)
+    copycommand = 'echo "{} " | pbcopy'.format(cmd)
     os.system(copycommand)
 
-    result.AppendMessage('Copied script to clipboard... paste in Terminal')
+    result.AppendMessage("Copied script to clipboard... paste in Terminal")
+
 
 def createOrTouchFilePath(filepath, dtrace_script):
     file = open(filepath, "w")
@@ -47,27 +48,27 @@ def createOrTouchFilePath(filepath, dtrace_script):
 
 def generateDTraceScript(target, options):
     path = target.executable.fullpath
-    section = target.module[path].section['__DATA']
+    section = target.module[path].section["__DATA"]
     start_address = section.GetLoadAddress(target)
     end_address = start_address + section.size
 
+    dataSectionFilter = """{} <= *((uintptr_t *)copyin(arg0, sizeof(uintptr_t))) && 
+                                *((uintptr_t *)copyin(arg0, sizeof(uintptr_t))) <= {}"""
 
-      
-    dataSectionFilter = '''{} <= *((uintptr_t *)copyin(arg0, sizeof(uintptr_t))) && 
-                                *((uintptr_t *)copyin(arg0, sizeof(uintptr_t))) <= {}'''
-                                
     if options.all:
-        dataSectionFilter = '1'
+        dataSectionFilter = "1"
     else:
         dataSectionFilter = dataSectionFilter.format(start_address, end_address)
 
-    predicate = '''/ arg0 > 0x100000000 &&
+    predicate = """/ arg0 > 0x100000000 &&
                       {} &&
                       this->selector != "retain" &&  
-                      this->selector != "release" /'''.format(dataSectionFilter)
+                      this->selector != "release" /""".format(
+        dataSectionFilter
+    )
 
-
-    script = r'''#!/usr/sbin/dtrace -s
+    script = (
+        r"""#!/usr/sbin/dtrace -s
 #pragma D option quiet  
 
 dtrace:::BEGIN
@@ -80,7 +81,9 @@ pid$target::objc_msgSend:entry
   this->selector = copyinstr(arg1); 
 }
 
-pid$target::objc_msgSend:entry ''' + predicate + r'''  
+pid$target::objc_msgSend:entry """
+        + predicate
+        + r"""  
 {
   size = sizeof(uintptr_t);  
   this->isa = *((uintptr_t *)copyin(arg0, size));
@@ -114,18 +117,20 @@ pid$target::objc_msgSend:entry ''' + predicate + r'''
 
   printf("0x%016p %c[%s %s]\n", arg0, this->instanceOrClass, this->classname, 
                                        this->selector);
-}'''
+}"""
+    )
     return script
-
 
 
 def generate_option_parser():
     usage = "usage: %prog [options] snoopie"
     parser = optparse.OptionParser(usage=usage, prog="snoopie")
-    parser.add_option("-a", "--all",
-                      action="store_true",
-                      default=False,
-                      dest="all",
-                      help="DTrace all Objective-C code instead of just the main executable")
+    parser.add_option(
+        "-a",
+        "--all",
+        action="store_true",
+        default=False,
+        dest="all",
+        help="DTrace all Objective-C code instead of just the main executable",
+    )
     return parser
-

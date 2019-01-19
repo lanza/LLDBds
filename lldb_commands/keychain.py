@@ -1,16 +1,17 @@
-
-
 import lldb
 import os
 import shlex
 import optparse
 
+
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-    'command script add -f keychain.handle_command keychain -h "iOS keychain methods"')
+        'command script add -f keychain.handle_command keychain -h "iOS keychain methods"'
+    )
+
 
 def handle_command(debugger, command, exe_ctx, result, internal_dict):
-    '''
+    """
     keychain will dump all the generic password and generic internet passwords
     known to the process (iOS only).
 
@@ -27,7 +28,7 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
     # Dump content whose service or account name contains "tmp"
     keychain tmp
 
-    '''
+    """
 
     command_args = shlex.split(command, posix=False)
     parser = generate_option_parser()
@@ -40,24 +41,22 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
     # Uncomment if you are expecting at least one argument
     # clean_command = shlex.split(args[0])[0]
 
-
     if len(args) > 0:
         script = generate_script_info(args[0])
     else:
         script = generate_script_info(None)
 
-
-    debugger.HandleCommand('exp -lobjc -O -- ' + script)
+    debugger.HandleCommand("exp -lobjc -O -- " + script)
     # result.AppendMessage('Hello! the keychain command is working!')
 
 
 def generate_script_info(query):
     if query:
-        script = "NSString *queryString = @\"" + query + "\";"
+        script = 'NSString *queryString = @"' + query + '";'
     else:
         script = "NSString *queryString = nil;"
 
-    script += r'''
+    script += r"""
    NSMutableDictionary *query = [NSMutableDictionary dictionaryWithDictionary:
                                   @{ (id)@"r_Attributes" : (id)@YES,
                                     (id)@"r_Data" : (id)@YES,
@@ -136,8 +135,9 @@ def generate_script_info(query):
         
     }
     [returnArray debugDescription]
-    '''
+    """
     return script
+
 
 def generate_option_parser():
     usage = "usage: %prog [options] TODO Description Here :]"
@@ -153,4 +153,3 @@ def generate_option_parser():
     #                   dest="store_true",
     #                   help="This is a placeholder option to show you how to use options with bools")
     return parser
-    

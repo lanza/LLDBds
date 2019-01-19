@@ -1,5 +1,5 @@
 # MIT License
-# 
+#
 # Copyright (c) 2017 Derek Selander
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,17 +26,20 @@ import shlex
 import ds
 import optparse
 
+
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-    'command script add -f sbt.handle_command sbt -h "Resymbolicate stripped ObjC backtrace"')
+        'command script add -f sbt.handle_command sbt -h "Resymbolicate stripped ObjC backtrace"'
+    )
+
 
 def handle_command(debugger, command, exe_ctx, result, internal_dict):
-    '''
+    """
     Symbolicate backtrace. Will symbolicate a stripped backtrace
     from an executable if the backtrace is using Objective-C 
     code. Currently doesn't work on aarch64 stripped executables
     but works great on x64 :]
-    '''
+    """
     command_args = shlex.split(command, posix=False)
     parser = generate_option_parser()
     try:
@@ -45,32 +48,34 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
         result.SetError(parser.usage)
         return
 
-
     target = exe_ctx.target
     thread = exe_ctx.thread
     if thread is None:
-        result.SetError('LLDB must be paused to execute this command')
+        result.SetError("LLDB must be paused to execute this command")
         return
 
     if options.address:
         frameAddresses = [int(options.address, 16)]
     else:
-        frameAddresses = [f.addr.GetLoadAddress(target) 
-                          for f 
-                          in thread.frames]
+        frameAddresses = [f.addr.GetLoadAddress(target) for f in thread.frames]
 
     frameString = processStackTraceStringFromAddresses(frameAddresses, target, options)
     result.AppendMessage(frameString)
 
 
 def processStackTraceStringFromAddresses(frameAddresses, target, options=None):
-    frame_string = ''
-    startAddresses = [target.ResolveLoadAddress(f).symbol.addr.GetLoadAddress(target) for f in frameAddresses]
+    frame_string = ""
+    startAddresses = [
+        target.ResolveLoadAddress(f).symbol.addr.GetLoadAddress(target)
+        for f in frameAddresses
+    ]
     script = generateExecutableMethodsScript(startAddresses)
 
     # New content start 1
     methods = target.EvaluateExpression(script, ds.genExpressionOptions())
-    charPointerType = target.FindFirstType("char").GetPointerType().GetArrayType(len(frameAddresses))
+    charPointerType = (
+        target.FindFirstType("char").GetPointerType().GetArrayType(len(frameAddresses))
+    )
     methods = methods.Cast(charPointerType)
     methodsVal = lldb.value(methods)
     # New content end 1
@@ -82,54 +87,71 @@ def processStackTraceStringFromAddresses(frameAddresses, target, options=None):
         symbol = addr.symbol
 
         # New content start 2
-        if symbol.synthetic: # 1
-            children = methodsVal.sbvalue.GetNumChildren() # 4
-            name = ds.attrStr(symbol.name + r' ... unresolved womp womp', 'redd') # 2
+        if symbol.synthetic:  # 1
+            children = methodsVal.sbvalue.GetNumChildren()  # 4
+            name = ds.attrStr(symbol.name + r" ... unresolved womp womp", "redd")  # 2
 
-            loadAddr = symbol.addr.GetLoadAddress(target) # 3
-            k = str(methodsVal[index]).split('"') # 5
+            loadAddr = symbol.addr.GetLoadAddress(target)  # 3
+            k = str(methodsVal[index]).split('"')  # 5
             if len(k) >= 2:
-                name = ds.attrStr(k[1], 'bold') # 6
+                name = ds.attrStr(k[1], "bold")  # 6
         else:
-            name = ds.attrStr(str(symbol.name), 'yellow') # 7
+            name = ds.attrStr(str(symbol.name), "yellow")  # 7
         # New content end 2
 
-        offset_str = ''
+        offset_str = ""
         offset = addr.GetLoadAddress(target) - addr.symbol.addr.GetLoadAddress(target)
         if offset > 0:
-            offset_str = '+ {}'.format(offset)
+            offset_str = "+ {}".format(offset)
 
-        i = ds.attrStr('frame #{:<2}:'.format(index), 'grey')
+        i = ds.attrStr("frame #{:<2}:".format(index), "grey")
         if options and options.address:
-            frame_string += '{} {}`{} {}\n'.format(ds.attrStr(hex(addr.GetLoadAddress(target)), 'grey'), ds.attrStr(str(addr.module.file.basename), 'cyan'), ds.attrStr(str(name), 'yellow'), ds.attrStr(offset_str, 'grey'))
+            frame_string += "{} {}`{} {}\n".format(
+                ds.attrStr(hex(addr.GetLoadAddress(target)), "grey"),
+                ds.attrStr(str(addr.module.file.basename), "cyan"),
+                ds.attrStr(str(name), "yellow"),
+                ds.attrStr(offset_str, "grey"),
+            )
         else:
-            frame_string += '{} {} {}`{} {}\n'.format(i, ds.attrStr(str(hex(addr.GetLoadAddress(target))), 'grey'), ds.attrStr(str(addr.module.file.basename), 'cyan'), name, ds.attrStr(str(offset_str), 'grey'))
-
+            frame_string += "{} {} {}`{} {}\n".format(
+                i,
+                ds.attrStr(str(hex(addr.GetLoadAddress(target))), "grey"),
+                ds.attrStr(str(addr.module.file.basename), "cyan"),
+                name,
+                ds.attrStr(str(offset_str), "grey"),
+            )
 
     return frame_string
+
 
 def generateOptions():
     expr_options = lldb.SBExpressionOptions()
     expr_options.SetUnwindOnError(True)
-    expr_options.SetLanguage (lldb.eLanguageTypeObjC_plus_plus)
+    expr_options.SetLanguage(lldb.eLanguageTypeObjC_plus_plus)
     expr_options.SetCoerceResultToId(False)
     return expr_options
 
 
 def generateExecutableMethodsScript(frame_addresses):
-    xcode9bug = 'char *frames[' + str(len(frame_addresses)) + r'''];
-  for (int i = 0; i < ''' + str(len(frame_addresses)) + r'''; i++) {
+    xcode9bug = (
+        "char *frames["
+        + str(len(frame_addresses))
+        + r"""];
+  for (int i = 0; i < """
+        + str(len(frame_addresses))
+        + r"""; i++) {
         frames[i] = NULL;
     }
-    '''
-    frame_addr_str = 'NSArray *ar = @['
+    """
+    )
+    frame_addr_str = "NSArray *ar = @["
     for f in frame_addresses:
         frame_addr_str += '@"' + str(f) + '",'
 
     frame_addr_str = frame_addr_str[:-1]
-    frame_addr_str += '];'
+    frame_addr_str += "];"
 
-    command_script = r'''
+    command_script = r"""
     @import ObjectiveC;
     @import Foundation;
   NSMutableDictionary *retdict = [NSMutableDictionary dictionary];
@@ -164,10 +186,10 @@ def generateExecutableMethodsScript(frame_addresses):
     free(classMethods);
   }
   free(allClasses);
-  '''
+  """
     command_script += xcode9bug
     command_script += frame_addr_str
-    command_script += r'''
+    command_script += r"""
     
 
   for (NSString *key in ar) {
@@ -180,18 +202,21 @@ def generateExecutableMethodsScript(frame_addresses):
   }
 
   frames;
-  '''
+  """
     return command_script
+
 
 def generate_option_parser():
     usage = "usage: %prog [options] path/to/item"
     parser = optparse.OptionParser(usage=usage, prog="lookup")
 
-    parser.add_option("-a", "--address",
-                      action="store",
-                      default=None,
-                      dest="address",
-                      help="Only try to resymbolicate this address")
+    parser.add_option(
+        "-a",
+        "--address",
+        action="store",
+        default=None,
+        dest="address",
+        help="Only try to resymbolicate this address",
+    )
 
-    
     return parser

@@ -29,11 +29,12 @@ import lldb.utils.symbolication
 
 def __lldb_init_module(debugger, internal_dict):
     debugger.HandleCommand(
-        'command script add -f sclass.sclass sclass -h "Swizzle class helper"')
+        'command script add -f sclass.sclass sclass -h "Swizzle class helper"'
+    )
 
 
 def sclass(debugger, command, exe_ctx, result, internal_dict):
-    '''
+    """
     Swizzle Class. Generates a NSObject category file 
     that swizzles the class that you supply. 
 
@@ -53,7 +54,7 @@ Examples:
 
     # Generates a category which enables all swizzles to be enabled by default
     sclass UIViewController -e
-    '''
+    """
 
     command_args = shlex.split(command, posix=False)
     parser = generate_option_parser()
@@ -64,9 +65,9 @@ Examples:
         return
 
     if not args:
-        result.SetError('usage: sclass NSObjectSubclass')
+        result.SetError("usage: sclass NSObjectSubclass")
         return
-    clean_command = ('').join(args)
+    clean_command = ("").join(args)
 
     res = lldb.SBCommandReturnObject()
     interpreter = debugger.GetCommandInterpreter()
@@ -76,57 +77,72 @@ Examples:
     res.Clear()
 
     target = exe_ctx.target
-    interpreter.HandleCommand('expression -lobjc -O -- (Class)NSClassFromString(@\"{}\")'.format(clean_command), res)
-    if 'nil' in res.GetOutput():
-        result.SetError('Can\'t find class named "{}". Womp womp...'.format(clean_command))
+    interpreter.HandleCommand(
+        'expression -lobjc -O -- (Class)NSClassFromString(@"{}")'.format(clean_command),
+        res,
+    )
+    if "nil" in res.GetOutput():
+        result.SetError(
+            'Can\'t find class named "{}". Womp womp...'.format(clean_command)
+        )
         return
     res.Clear()
 
     command_script = generate_header_script(options, clean_command)
     filepath = "/tmp/NSObject+DS_" + clean_command + ".m"
-    interpreter.HandleCommand('expression -lobjc -O -- ' + command_script, res)
-        # debugger.HandleCommand('expression -lobjc -O -g -- ' + command_script)
+    interpreter.HandleCommand("expression -lobjc -O -- " + command_script, res)
+    # debugger.HandleCommand('expression -lobjc -O -g -- ' + command_script)
     if res.GetError():
-        result.SetError(res.GetError()) 
+        result.SetError(res.GetError())
         return
     contents = generate_swizzle_block(clean_command) + res.GetOutput()
 
     if options.copy_compile:
-        if 'x86_64h-apple-ios' in target.GetTriple():
-            archType = '-sdk iphonesimulator'
-        elif 'arm64' in target.GetTriple():
-            archType = '-sdk iphoneos'
+        if "x86_64h-apple-ios" in target.GetTriple():
+            archType = "-sdk iphonesimulator"
+        elif "arm64" in target.GetTriple():
+            archType = "-sdk iphoneos"
         else:
-            archType = ''
+            archType = ""
 
-
-        compileString = 'clang {} -dynamiclib -Wl, -isysroot `xcrun --show-sdk-path {}` -framework Foundation -framework UIKit -framework QuartzCore -o /tmp/a.dylib && codesign --force --sign - /tmp/a.dylib'.format(filepath, archType)
+        compileString = "clang {} -dynamiclib -Wl, -isysroot `xcrun --show-sdk-path {}` -framework Foundation -framework UIKit -framework QuartzCore -o /tmp/a.dylib && codesign --force --sign - /tmp/a.dylib".format(
+            filepath, archType
+        )
         os.system('echo "{}" | pbcopy'.format(compileString))
-        result.AppendMessage('Copying build command to clipboard')
-        contents = '/*\n{}\n*/\n\n'.format(compileString) + contents
+        result.AppendMessage("Copying build command to clipboard")
+        contents = "/*\n{}\n*/\n\n".format(compileString) + contents
 
     create_or_touch_filepath(filepath, contents)
-    result.AppendMessage('Written output to: ' + filepath + '... opening file')
-    os.system('open -R ' + filepath)
+    result.AppendMessage("Written output to: " + filepath + "... opening file")
+    os.system("open -R " + filepath)
 
 
 def generate_swizzle_block(class_to_generate_header):
-    return  r'''#import <Foundation/Foundation.h>
+    return (
+        r"""#import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-@interface NSObject (DS_''' + class_to_generate_header + r'''_Swizzle)
+@interface NSObject (DS_"""
+        + class_to_generate_header
+        + r"""_Swizzle)
 @end
 
-@implementation NSObject (DS_''' + class_to_generate_header + r'''_Swizzle)
+@implementation NSObject (DS_"""
+        + class_to_generate_header
+        + r'''_Swizzle)
 
 + (void)load { 
 
     __unused void (^swizzle)(NSString *, BOOL) = ^(NSString *method, BOOL isClassMethod ) {
-    NSString *randString = @"''' + class_to_generate_header + r'''";
+    NSString *randString = @"'''
+        + class_to_generate_header
+        + r'''";
     NSString *swizzledString = [(NSString *)[(NSString *)[@"ds" stringByAppendingString:randString] stringByAppendingString:@"_"] stringByAppendingString:method];;
     
-    Class cls = NSClassFromString(@"''' + class_to_generate_header + r'''");
+    Class cls = NSClassFromString(@"'''
+        + class_to_generate_header
+        + r"""");
 
     SEL originalSelector = NSSelectorFromString(method);
     SEL swizzledSelector = NSSelectorFromString(swizzledString);
@@ -157,10 +173,13 @@ def generate_swizzle_block(class_to_generate_header):
       method_exchangeImplementations(originalMethod, swizzledMethod);
     }
   };
-  '''
+  """
+    )
+
 
 def generate_header_script(options, class_to_generate_header):
-    script = '''
+    script = (
+        '''
 
   @import @ObjectiveC;
   @import @Foundation;
@@ -170,14 +189,18 @@ def generate_header_script(options, class_to_generate_header):
   // typedef struct objc_category *Category;
   typedef struct objc_property *objc_property_t;
   
-  NSString *randString = @"''' + class_to_generate_header + r'''";
+  NSString *randString = @"'''
+        + class_to_generate_header
+        + r'''";
   NSMutableString *returnString = [NSMutableString string];
   // Properties
   NSMutableSet *blackListMethodNames = [NSMutableSet set];
   NSMutableSet *exportedClassesSet = [NSMutableSet set];
   
   [blackListMethodNames addObjectsFromArray:@[@".cxx_destruct", @"dealloc", @"retain", @"release", @"autorelease", @"_tryRetain", @"class", @"_isDeallocating", @"hash"]];
-  Class cls = NSClassFromString(@"''' + class_to_generate_header + r'''");
+  Class cls = NSClassFromString(@"'''
+        + class_to_generate_header
+        + r"""");
   
   NSString *(^argumentBlock)(NSString *) = ^(NSString *arg) {
     if ([arg isEqualToString:@"@"]) {
@@ -218,28 +241,35 @@ def generate_header_script(options, class_to_generate_header):
 
       Method m = methods[i];
       NSString *methodName = NSStringFromSelector((SEL)method_getName(m));
-      '''
+      """
+    )
     if options.method:
-        script += r'if (!(BOOL)[methodName isEqualToString:@"' + options.method + '"]) { continue; }'
+        script += (
+            r'if (!(BOOL)[methodName isEqualToString:@"'
+            + options.method
+            + '"]) { continue; }'
+        )
 
     if options.regex_method:
-        script += 'NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"{}" options:0 error:nil];'.format(options.regex_method)
-        script += r'''
+        script += 'NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"{}" options:0 error:nil];'.format(
+            options.regex_method
+        )
+        script += r"""
     NSUInteger matches = (NSUInteger)[regex numberOfMatchesInString:methodName options:0 range:NSMakeRange(0, [methodName length])];
     if (matches == 0) {
       continue;
-    }'''
+    }"""
 
-    script += r''' 
+    script += r""" 
       if([blackListMethodNames containsObject:methodName]) {
         continue;
-      }'''
+      }"""
     if options.enable_all:
         script += r'[swizzledImplementationsString appendString:@"\n  swizzle(@\""];'
     else:
         script += r'[swizzledImplementationsString appendString:@"\n  // swizzle(@\""];'
 
-    script += r'''
+    script += r"""
       [swizzledImplementationsString appendString:methodName];
       [swizzledImplementationsString appendString:@"\", "];
       
@@ -293,14 +323,16 @@ def generate_header_script(options, class_to_generate_header):
       
       
       [generatedMethods appendString:(NSString *)[generatedMethodString stringByAppendingString:@" {\n"]];
-      '''
+      """
     if options.stop_execution:
         script += r'[generatedMethods appendString:@"  raise(17);\n"];'
 
     if options.print_function:
-        script += r'[generatedMethods appendString:@"  printf(\"%s\\n\", __FUNCTION__);\n"];'
+        script += (
+            r'[generatedMethods appendString:@"  printf(\"%s\\n\", __FUNCTION__);\n"];'
+        )
 
-    script += r'''
+    script += r"""
       [generatedMethods appendString:@"  "];
       if (shouldAddReturn) {
         [generatedMethods appendString:@"return "];
@@ -369,7 +401,7 @@ def generate_header_script(options, class_to_generate_header):
   [returnString appendString:finalString];
   
   returnString
-'''
+"""
     return script
 
 
@@ -379,42 +411,61 @@ def create_or_touch_filepath(filepath, contents):
     file.flush()
     file.close()
 
+
 def generate_option_parser():
     usage = "usage: %prog [options] /optional/path/to/executable/or/bundle"
     parser = optparse.OptionParser(usage=usage, prog="dump_classes")
-    parser.add_option("-p", "--print_function",
-                      action="store_true",
-                      default=False,
-                      dest="print_function",
-                      help="Will print the file for all swizzled methods")
+    parser.add_option(
+        "-p",
+        "--print_function",
+        action="store_true",
+        default=False,
+        dest="print_function",
+        help="Will print the file for all swizzled methods",
+    )
 
-    parser.add_option("-e", "--enable_all",
-                      action="store_true",
-                      default=False,
-                      dest="enable_all",
-                      help="Enable all swizzled methods (do not comment them out)")
+    parser.add_option(
+        "-e",
+        "--enable_all",
+        action="store_true",
+        default=False,
+        dest="enable_all",
+        help="Enable all swizzled methods (do not comment them out)",
+    )
 
-    parser.add_option("-s", "--stop_execution",
-                      action="store_true",
-                      default=False,
-                      dest="stop_execution",
-                      help="If true, this will create a breakpoint on all the swizzled functions")
+    parser.add_option(
+        "-s",
+        "--stop_execution",
+        action="store_true",
+        default=False,
+        dest="stop_execution",
+        help="If true, this will create a breakpoint on all the swizzled functions",
+    )
 
-    parser.add_option("-m", "--method",
-                      action="store",
-                      default=None,
-                      dest="method",
-                      help="Instead of dumping all the functions only specify a module, expects Selector style input")
+    parser.add_option(
+        "-m",
+        "--method",
+        action="store",
+        default=None,
+        dest="method",
+        help="Instead of dumping all the functions only specify a module, expects Selector style input",
+    )
 
-    parser.add_option("-c", "--copy_compile",
-                      action="store_true",
-                      default=False,
-                      dest="copy_compile",
-                      help="Copy the compile command to compile the category to the clipboard")
+    parser.add_option(
+        "-c",
+        "--copy_compile",
+        action="store_true",
+        default=False,
+        dest="copy_compile",
+        help="Copy the compile command to compile the category to the clipboard",
+    )
 
-    parser.add_option("-r", "--regex_method",
-                      action="store",
-                      default=None,
-                      dest="regex_method",
-                      help="Only generate methods to swizzle based upon a regex expression")
+    parser.add_option(
+        "-r",
+        "--regex_method",
+        action="store",
+        default=None,
+        dest="regex_method",
+        help="Only generate methods to swizzle based upon a regex expression",
+    )
     return parser
