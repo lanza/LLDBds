@@ -1,7 +1,6 @@
 
 
 import lldb
-import os
 import shlex
 import optparse
 import ds
@@ -12,7 +11,7 @@ def __lldb_init_module(debugger, internal_dict):
 
 def handle_command(debugger, command, exe_ctx, result, internal_dict):
     '''
-    Documentation for how to use info goes here 
+    Documentation for how to use info goes here
     '''
 
     command_args = shlex.split(command, posix=False)
@@ -28,7 +27,7 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
 
     if len(args) != 1:
         result.SetError("Expects an address")
-        return        
+        return
 
     try:
         if args[0].startswith("0x") or args[0].startswith("0X"):
@@ -43,7 +42,7 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
             result.SetError("can't parse \"{}\"".format(args[0]))
             return
 
-        
+
         if options.address_of:
             derefVal = val.AddressOf()
             if derefVal.IsValid() == False:
@@ -72,7 +71,7 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
         foundAddress, returnDescription = tryHeapAddress(addr, target, options)
 
     if foundAddress == False:
-        foundAddress, returnDescription = tryStackAddress(addr, target, options)        
+        foundAddress, returnDescription = tryStackAddress(addr, target, options)
 
     memString = ""
     if options.verbose:
@@ -88,16 +87,16 @@ def handle_command(debugger, command, exe_ctx, result, internal_dict):
         debugger.HandleCommand("image lookup -v -a {}".format(addr))
         # result.SetError('Couldn\'t find info for address \'{}\''.format(addr))
 
-    
+
 def tryStackAddress(addr, target, options):
     for frame in target.GetProcess().GetSelectedThread().frames:
-	    address = addr.GetLoadAddress(target)
-	    fp = frame.GetFP()
-	    sp = frame.GetSP() 
-	    if address >= sp and address <= fp:
-	    	global a 
-	    	a = frame
-	    	return True, "stack address (SP: {}, FP: {}) {}".format(hex(sp), hex(fp), frame.name)
+        address = addr.GetLoadAddress(target)
+        fp = frame.GetFP()
+        sp = frame.GetSP()
+        if address >= sp and address <= fp:
+            global a
+            a = frame
+            return True, "stack address (SP: {}, FP: {}) {}".format(hex(sp), hex(fp), frame.name)
     return False, ""
 
 
@@ -109,7 +108,7 @@ def tryMachOAddress(addr, target, options):
         return False, ""
 
     sectionName = section.GetName()
-    tmpS = section 
+    tmpS = section
     while tmpS.GetParent().IsValid():
         tmpS = tmpS.GetParent()
         sectionName = "{}.{}".format(tmpS.GetName(), sectionName)
@@ -140,7 +139,7 @@ def tryMachOAddress(addr, target, options):
 
             returnDescription += ", External: {}".format("YES" if symbol.IsSynthetic() else "NO")
 
-    tpe = target.GetBasicType(lldb.eBasicTypeNullPtr).GetPointerType()
+    # tpe = target.GetBasicType(lldb.eBasicTypeNullPtr).GetPointerType()
     # val = target.EvaluateExpression("(void *){}".format(addr.GetLoadAddress(target)), ds.genExpressionOptions())
     # if val.IsValid():
     #     data = val.GetData()
@@ -167,15 +166,15 @@ def tryHeapAddress(addr, target, options):
 
       retString = (NSMutableString*)[[NSMutableString alloc] initWithFormat:@"%p heap pointer, (0x%x bytes), zone: %p", ptr, (size_t)malloc_good_size((size_t)malloc_size(ptr)), (void*)malloc_zone_from_ptr(ptr)];
     }
-    
+
     retString ? retString : nil;
     '''
 
     val = target.EvaluateExpression(cleanCommand, ds.genExpressionOptions())
-    
+
     if val.GetError().success == False or val.GetValueAsUnsigned() == 0 or val.description is None:
         return False, ""
-    
+
     returnDescription += val.description
     return True, returnDescription
 
@@ -195,4 +194,4 @@ def generate_option_parser():
                       dest="address_of",
                       help="By default Swift makes it a pain the ass to get the address a variable, this does it for you")
     return parser
-    
+
